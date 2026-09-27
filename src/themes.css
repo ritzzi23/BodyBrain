@@ -1,0 +1,156 @@
+/* Theme changes share the existing layout and never reset the anatomy scene. */
+:root { color-scheme: dark; }
+.spread-scope { margin: 0 3px 8px; color: var(--muted); font-size: 9px; line-height: 1.5; }
+.spread-slider:disabled { opacity: .45; cursor: not-allowed; }
+:root[data-theme="light"] {
+  color-scheme: light;
+  color: #26313e;
+  background: #f7f8fa;
+  --bg: #f7f8fa;
+  --panel: #fff;
+  --line: #273b521a;
+  --muted: #596879;
+  --faint: #687587;
+  --mint: #36755c;
+  --accent: #7361b0;
+  --accent-bg: #ece8f6;
+}
+
+[data-theme="light"] button:hover:not(:disabled) { color: #423664; }
+[data-theme="light"] ::-webkit-scrollbar-thumb { background: #273b5230; }
+[data-theme="light"] ::selection { background: #d9d0f2; color: #352653; }
+[data-theme="light"] .app-header,
+[data-theme="light"] .browse-panel,
+[data-theme="light"] .sidebar-bottom { background: #f9fafb; }
+[data-theme="light"] .inspector-panel { background: #fff; }
+[data-theme="light"] .app-footer { background: #f7f8fa; color: #667486; }
+[data-theme="light"] .header-divider,
+[data-theme="light"] .welcome-rule { background: #273b521c; }
+[data-theme="light"] .brand-symbol { background: #eaf2ed; border-color: #36755c26; }
+[data-theme="light"] .main-nav > button { color: #637082; }
+[data-theme="light"] .main-nav > button.selected { color: #58448e; }
+[data-theme="light"] .nav-count { border-color: #273b5225; background: #fff; }
+[data-theme="light"] .prototype-badge { color: #52665c; }
+[data-theme="light"] .avatar { background: #ece8f4; color: #66537e; border-color: #76608f25; }
+[data-theme="light"] .icon-button { color: #667185; }
+[data-theme="light"] .icon-button:hover:not(:disabled) { background: #7361b012; }
+[data-theme="light"] .icon-button.active { background: var(--accent-bg); color: var(--accent); }
+[data-theme="light"] .theme-toggle { background: #ece8f6; color: #665293; }
+
+[data-theme="light"] :is(.workspace-name, .eyebrow, .sidebar-description,
+  .region-row small, .region-row > svg, .section-label, .credits-button,
+  .search-results small, .system-name small, .layer-card small, .empty-small,
+  .model-tag, .stage-instructions, .range-labels, .orientation,
+  .welcome-panel > p, .featured-list small, .featured-list > button > svg,
+  .inspector-hint, .structure-reference, .context-caption, .detail-info > span,
+  .included-structures > small, .panel-description, .memory-empty p,
+  .memory-item time, .memory-item > span, .loading-percent, .loading-card p,
+  .app-footer button, .modal-description, .credits-copy p) { color: #647183; }
+
+[data-theme="light"] .search-box { background: #fff; border-color: #273b5224; color: #6b7285; }
+[data-theme="light"] .search-box:focus-within { border-color: #8e7cb9; box-shadow: 0 0 0 3px #7361b012; }
+[data-theme="light"] .search-box input { color: #26313e; }
+[data-theme="light"] .search-box input::placeholder { color: #758093; }
+[data-theme="light"] .search-box kbd { color: #6d788a; border-color: #273b5220; background: #f7f8fa; }
+[data-theme="light"] .browse-tabs { background: #edf0f4; }
+[data-theme="light"] .browse-tabs button { color: #617083; }
+[data-theme="light"] .browse-tabs button[aria-selected="true"] { background: #fff; color: #635095; box-shadow: 0 1px 5px #25374712; }
+[data-theme="light"] .region-row:hover { background: #7361b007; }
+[data-theme="light"] .region-art { background: linear-gradient(130deg, #ece8f6, #f5f3f9); color: #81709f; border-color: #7361b014; }
+[data-theme="light"] .label-toggle,
+[data-theme="light"] .opacity-control label { color: #536174; }
+[data-theme="light"] .switch { background: #d1d8e0; }
+[data-theme="light"] .switch > span { background: #fff; }
+[data-theme="light"] .switch.on { background: #8775b5; }
+[data-theme="light"] .switch.on > span { background: #fff; }
+[data-theme="light"] :is(.back-link, .text-button, .saved-structures button) { color: #725b9e; }
+[data-theme="light"] :is(.structure-list button, .search-results > button) { color: #455267; }
+[data-theme="light"] :is(.structure-list button, .search-results > button):hover { color: #604d92; background: #7361b008; }
+[data-theme="light"] .empty-small p { color: #455267; }
+[data-theme="light"] .preset-row button { border-color: #273b5225; background: #fff; }
+[data-theme="light"] .preset-row button:hover { background: #ece8f6; }
+[data-theme="light"] .layer-card { background: #fff; border-color: #273b521c; color: #7e7296; }
+[data-theme="light"] .layer-card.selected { border-color: #a696cd; background: #f3effa; }
+[data-theme="light"] .layer-card strong { color: #455267; }
+
+/* The warm, neutral stage keeps bone and organ colors distinct. */
+[data-theme="light"] .body-stage { background: radial-gradient(ellipse at 50% 36%, #fff 0, #edf1f2 46%, #e2e8eb 100%); }
+[data-theme="light"] .part-hover { background: #fffffff2; color: #4e4168; border-color: #7361b036; box-shadow: 0 6px 22px #273b5219; }
+[data-theme="light"] .stage-label { color: #566276; }
+[data-theme="light"] .selection-chip { background: #f8f5ffeb; color: #645083; border-color: #9785ba4d; }
+[data-theme="light"] .selection-chip button { color: #78658f; }
+[data-theme="light"] .zoom-controls { background: #ffffffd9; border-color: #273b521c; box-shadow: 0 3px 14px #273b5206; }
+[data-theme="light"] .zoom-controls > .icon-button { color: #637085; }
+[data-theme="light"] .orientation strong { background: #ffffffe6; border-color: #7361b026; color: #756190; }
+[data-theme="light"] .view-dock { background: linear-gradient(125deg, #fffffff5, #f8f9fcf2); border-color: #ffffff; box-shadow: 0 8px 28px #273b5217; }
+[data-theme="light"] .view-tabs button { color: #68758a; }
+[data-theme="light"] .view-tabs button.active { background: #eee9f7; color: #66518f; border-color: #7361b017; }
+[data-theme="light"] .view-tabs button:hover:not(:disabled) { background: #7361b010; }
+[data-theme="light"] .spread-heading label { color: #4f5d71; }
+[data-theme="light"] .spread-heading label svg { color: #87769f; }
+[data-theme="light"] .spread-heading > button { color: #716080; }
+[data-theme="light"] .spread-heading output { background: #ece6f5; color: #6c5299; }
+[data-theme="light"] .spread-slider { background: linear-gradient(to right, #8b75ba var(--range-progress), #dce0e7 var(--range-progress)); }
+[data-theme="light"] .spread-slider::-webkit-slider-thumb { background: #fff; border-color: #8b75ba; box-shadow: 0 0 0 3px #fff; }
+[data-theme="light"] .spread-slider::-moz-range-thumb { background: #fff; border-color: #8b75ba; }
+[data-theme="light"] .stage-instructions i { background: #8d97a6; }
+[data-theme="light"] .mobile-stage-tools button { color: #5c5272; background: #ffffffe6; border-color: #7361b024; }
+
+[data-theme="light"] .welcome-symbol { color: #56826b; background: #eff5f1; border-color: #36755c24; }
+[data-theme="light"] .featured-0 { color: #a85e6b; }
+[data-theme="light"] .featured-1 { color: #8c7840; }
+[data-theme="light"] .featured-2 { color: #8364a2; }
+[data-theme="light"] .featured-3 { color: #477e69; }
+[data-theme="light"] .memory-intro { background: linear-gradient(120deg, #eff6f1, #f8fbf9); border-color: #36755c20; }
+[data-theme="light"] .memory-intro > span { color: #4c7960; }
+[data-theme="light"] .memory-intro p { color: #62766b; }
+[data-theme="light"] .memory-intro button { color: #397053; }
+[data-theme="light"] .detail-tabs button { color: #667083; }
+[data-theme="light"] .detail-tabs button.active { color: #7361b0; border-bottom-color: #7361b0; }
+[data-theme="light"] .detail-tabs button > span { background: #7361b010; }
+[data-theme="light"] :is(.anatomy-description, .included-structures > button, .shortcut-list > div) { color: #556478; }
+[data-theme="light"] .detail-info strong { color: #36485e; }
+[data-theme="light"] .add-memory-card { color: #397657; background: #f5f9f6; border-color: #36755c42; }
+[data-theme="light"] .add-memory-card small { color: #677e6e; }
+[data-theme="light"] .inspector-actions > div > button { color: #667287; }
+[data-theme="light"] .primary-button { background: #7761aa; border-color: #7761aa; color: #fff; }
+[data-theme="light"] .primary-button:hover:not(:disabled) { background: #665091; border-color: #665091; color: #fff; }
+[data-theme="light"] .secondary-button { color: #5c5473; border-color: #273b522a; background: #fff; }
+[data-theme="light"] .secondary-button:hover:not(:disabled) { background: #f2edf8; }
+[data-theme="light"] .footer-separator { color: #b5bdc8; }
+[data-theme="light"] .loading-overlay { background: #edf1f2e8; }
+[data-theme="light"] .loading-orbit { border-color: #36755c36; box-shadow: 0 0 0 10px #36755c08; }
+[data-theme="light"] .loading-track { background: #273b5212; }
+[data-theme="light"] .memory-empty > span { color: #56816b; border-color: #36755c26; background: #eff6f1; }
+[data-theme="light"] .local-storage-note { color: #587568; }
+[data-theme="light"] .memory-item { background: #f8f9fc; border-color: #273b521c; }
+[data-theme="light"] .memory-item > button { color: #6b5299; }
+[data-theme="light"] .memory-item p { color: #526176; }
+[data-theme="light"] .remove-memory { color: #69788b; }
+[data-theme="light"] .remove-memory:hover { background: #7361b010; }
+[data-theme="light"] .timeline-list { border-left-color: #9a83bf55; }
+[data-theme="light"] .timeline-list .memory-item:before { border-color: #fff; background: #8c73b9; }
+[data-theme="light"] .toast { background: #edf7ef; border-color: #36755c42; color: #356d4d; box-shadow: 0 10px 40px #273b5226; }
+
+[data-theme="light"] .modal { background: #fff; color: #28384b; border-color: #273b5225; box-shadow: 0 25px 100px #273b523b; }
+[data-theme="light"] .modal::backdrop { background: #34415a55; }
+[data-theme="light"] .note-structure { color: #715591; background: #f0eaf8; }
+[data-theme="light"] .note-label { color: #526176; }
+[data-theme="light"] .modal textarea { color: #2b3d51; background: #f8f9fc; border-color: #273b522b; }
+[data-theme="light"] .modal textarea::placeholder { color: #738195; }
+[data-theme="light"] .shortcut-list kbd { color: #695484; background: #eee9f6; }
+[data-theme="light"] .credits-copy h3 { color: #3d4f64; }
+[data-theme="light"] .credits-copy a { color: #735a9d; }
+
+@media (max-width: 760px) {
+  .header-end > .icon-button:not(.theme-toggle) { display: none; }
+  .header-end > .theme-toggle { display: inline-flex; width: 30px; height: 34px; }
+  [data-theme="light"] :is(.browse-panel, .inspector-panel) { box-shadow: 0 0 50px #273b5233; }
+}
+@media (max-width: 380px) {
+  .app-header { padding: 0 12px; gap: 7px; }
+  .brand { font-size: 18px; gap: 6px; }
+  .brand-symbol { width: 27px; height: 29px; }
+  .main-nav { gap: 3px; }
+  .main-nav > button { width: 28px; }
+}

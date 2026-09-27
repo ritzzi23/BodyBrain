@@ -1,0 +1,706 @@
+Project: BodyBrain- Tagline: A living memory of your body, from everyday activity to clinical evidence.
+- One-line idea: BodyBrain is a personal AI agent that continuously builds a searchable, visual memory of your body by connecting medical imaging, reports, doctor conversations, prescriptions, treatments, injuries, workouts, wearable data, symptoms, and recovery to an interactive 3D anatomical model.
+- Core promise: BodyBrain remembers what happened, where it happened, when it happened, what evidence supports it, what was done about it, and how your body changed afterward.
+- Personal Agent angle: The product is not simply a medical chatbot, fitness tracker, document search engine, or anatomy viewer. The product is the persistent memory layer connecting all of those systems.
+- 1. The problem BodyBrain solves
+  - Your medical and physical history is fragmented.
+  - An MRI may live in a hospital portal.
+  - The radiology report may be a PDF.
+  - A doctor may verbally explain something important during an appointment.
+  - Prescriptions live somewhere else.
+  - Physiotherapy instructions may be on paper.
+  - Running data may be in Strava.
+  - Gym routines may be in another application.
+  - Heart rate, sleep, steps, and recovery information may be inside a wearable application.
+  - Pain or symptoms may exist only in your memory.
+  - Months later, it becomes difficult to reconstruct the complete story.
+  - BodyBrain turns all of those disconnected records into one longitudinal memory of the person's body.
+- 2. The central concept
+  - Imagine opening BodyBrain and seeing a 3D representation of the human body.
+  - Every anatomical structure can become a memory node.
+  - Clicking the spine could reveal:
+    - MRI findings
+    - X-rays
+    - Doctor visits
+    - Pain history
+    - Medications
+    - Physiotherapy
+    - Gym exercises
+    - Running activity
+    - Previous injuries
+    - Recovery progress
+  - Clicking a knee, shoulder, nerve, muscle, organ, joint, or vertebral level does the same thing.
+  - The 3D body therefore becomes a visual index into the user's personal history.
+- 3. The two major memory layers
+  - Clinical Evidence Memory
+    - MRI
+    - CT
+    - X-ray
+    - Ultrasound
+    - PET
+    - DEXA
+    - DICOM studies
+    - Radiology reports
+    - Laboratory reports
+    - Diagnoses
+    - Doctor notes
+    - Appointment discussions
+    - Prescriptions
+    - Surgeries
+    - Procedures
+    - Physiotherapy plans
+    - Follow-up records
+  - Daily Body Memory
+    - Strava activities
+    - Running
+    - Cycling
+    - Gym sessions
+    - Exercise sets and repetitions
+    - Steps
+    - Heart rate
+    - Sleep
+    - Recovery metrics
+    - Weight
+    - Soreness
+    - Symptoms
+    - Personal notes
+    - Injury updates
+  - Clinical data tells BodyBrain what clinicians documented.
+  - Daily data tells BodyBrain what was happening around those clinical events.
+  - The value comes from connecting the two.
+- 4. Medical imaging is a first-class part of BodyBrain
+  - The imaging layer should be one of the product's strongest features.
+  - A user can upload or import:
+    - MRI studies
+    - CT studies
+    - X-rays
+    - Ultrasound
+    - Other supported imaging
+    - Radiology reports
+  - BodyBrain separates:
+    - The actual imaging study
+    - The radiologist's report
+    - The doctor's interpretation
+    - The resulting diagnosis
+    - Treatment decisions
+    - Prescriptions
+    - Follow-up findings
+  - This distinction also aligns naturally with healthcare-data models such as FHIR, where DiagnosticReport can reference the corresponding ImagingStudy. HL7
+- 5. Anatomical precision
+  - BodyBrain should map information to the most specific anatomical structure actually supported by the record.
+  - Example:
+    - Poor output: Back problem
+    - Better output: Lumbar spine
+    - Better: L5-S1
+    - Better: L5-S1 intervertebral disc
+    - More precise when documented: Right S1 nerve root
+  - Another example:
+    - Shoulder
+    - → Rotator cuff
+    - → Supraspinatus tendon
+    - → Partial-thickness tear
+  - Another:
+    - Knee
+    - → Medial meniscus
+    - → Posterior horn
+    - → documented finding
+  - The system should never invent anatomical specificity that the medical record does not provide.
+- 6. Evidence-first design
+  - Every important finding should have a provenance trail.
+  - If BodyBrain highlights the right S1 nerve root, the user should be able to click Why?
+  - BodyBrain then shows:
+    - Source document
+    - Date
+    - Report type
+    - Original finding
+    - Doctor discussion
+    - Related treatment
+    - Follow-up evidence
+  - This is one of the most important features in the entire product.
+  - BodyBrain should distinguish:
+    - Explicitly stated in radiology report
+    - Documented by physician
+    - Extracted from medical record
+    - Reported by patient
+    - Derived anatomical mapping
+    - Imported from wearable
+  - Original clinical wording should always remain accessible.
+- 7. Example clinical memory
+  - Suppose an MRI says:
+    - L5-S1 disc protrusion with right S1 nerve root involvement
+  - BodyBrain creates connected memories:
+    - Lumbar spine
+    - → L5-S1
+    - → Disc protrusion
+    - → Right S1 nerve root
+    - → MRI
+    - → Radiology report
+    - → Doctor appointment
+    - → Leg symptoms
+    - → Prescription
+    - → Physiotherapy
+    - → Recovery
+  - Months later, the user can ask:
+    - "Which nerve was affected?"
+    - "What did my MRI actually say?"
+    - "When was this discovered?"
+    - "What did the doctor recommend?"
+    - "Why was I prescribed this medicine?"
+    - "How did my activity change afterward?"
+- 8. The 3D Body Memory Atlas
+  - The 3D human model remains the primary interface.
+  - The Human Atlas project is particularly useful as a prototype foundation because its current viewer exposes more than 2,000 selectable anatomical meshes, system filtering, search, isolation, and interactive selection using React and Three.js. GitHub
+  - BodyBrain adds a personal-memory layer on top of that anatomy.
+  - Possible visual states:
+    - Normal anatomy
+    - Structures containing memories
+    - Structures with recent activity
+    - Structures with documented medical findings
+    - Structures currently selected
+  - Selecting a structure opens:
+    - Clinical evidence
+    - Timeline
+    - Related documents
+    - Symptoms
+    - Exercises
+    - Injuries
+    - Treatments
+    - Agent conversation
+- 9. Important limitation for exact nerve visualization
+  - The current Human Atlas model is excellent as the general body interface, but exact peripheral nerve coverage should not be assumed for every nerve the product eventually needs.
+  - The repository currently uses a BodyParts3D-based model with 2,234 selectable meshes, and a separate peripheral-nerve expansion has appeared as an open contribution rather than something to assume is already part of the main product. GitHub
+  - Therefore the architecture should allow additional anatomical models or nerve overlays later.
+  - For the hackathon, choose one anatomical area that the available model represents well.
+- 10. Medical Document to Interactive Body
+  - The user uploads:
+    - MRI report
+    - X-ray report
+    - Prescription
+    - Visit summary
+    - Physiotherapy report
+  - BodyBrain performs:
+    - Text extraction
+    - Document classification
+    - Date extraction
+    - Anatomical entity extraction
+    - Laterality extraction
+    - Finding extraction
+    - Condition extraction
+    - Medication extraction
+    - Procedure extraction
+    - Clinician extraction
+    - Relationship extraction
+  - It then maps those entities to the body.
+  - Example input:
+    - "Moderate right neural foraminal stenosis at C5-C6."
+  - Generated structured memory:
+    - Region: cervical spine
+    - Level: C5-C6
+    - Side: right
+    - Structure: neural foramen
+    - Finding: stenosis
+    - Source: MRI report
+    - Date: report date
+  - The record itself remains attached.
+- 11. Doctor Discussion Memory
+  - Medical history is more than reports.
+  - BodyBrain should also remember what happened during appointments.
+  - A user could:
+    - Upload visit notes
+    - Import summaries
+    - Type what the doctor said
+    - Eventually import transcripts where permitted
+  - Extract:
+    - Doctor's explanation
+    - Diagnosis discussed
+    - Alternative possibilities
+    - Treatment recommendations
+    - Restrictions
+    - Follow-up requirements
+    - Referral information
+    - Medication changes
+    - Questions asked
+    - Questions left unanswered
+  - This makes the personal agent much more useful than a static medical-record viewer.
+- 12. Prescription Memory
+  - A medication should never appear as an isolated name.
+  - BodyBrain links it to its clinical context.
+  - Example:
+    - Medication
+    - → prescribed during → May 14 orthopedic appointment
+    - → associated with → right-leg nerve pain
+    - → following → MRI
+    - → related anatomy → lumbar spine
+    - → stopped/changed → June 10
+  - This lets the user ask:
+    - "Why was this prescribed?"
+    - "When did I start it?"
+    - "What issue was it connected to?"
+    - "Did anything change after I started it?"
+- 13. Injury and Recovery Brain
+  - Every injury becomes a persistent object.
+  - It contains:
+    - Initial symptoms
+    - Injury date
+    - Related activities
+    - Medical visits
+    - Imaging
+    - Diagnosis
+    - Medication
+    - Treatment
+    - Physiotherapy
+    - Exercise modifications
+    - Recovery notes
+    - Follow-up testing
+    - Return to activity
+  - Instead of remembering isolated events, BodyBrain remembers the entire episode.
+- 14. Daily Fitness Memory
+  - BodyBrain should continue functioning even when the user is healthy.
+  - Every day it can accumulate context from:
+    - Running
+    - Cycling
+    - Walking
+    - Gym workouts
+    - Exercise routines
+    - Sleep
+    - Heart rate
+    - Steps
+    - Recovery
+    - User-entered symptoms
+  - Strava is a realistic source because its API exposes athlete/activity information and uses OAuth 2.0 for user-authorized access. Strava Developers
+  - Longer term, other fitness and wearable sources can be normalized into the same BodyBrain event model.
+- 15. Gym Routine Memory
+  - Users can enter or import:
+    - Exercise
+    - Sets
+    - Repetitions
+    - Weight
+    - Duration
+    - Intensity
+    - Notes
+  - Each exercise maps to anatomical structures.
+  - Example:
+    - Squat
+    - → quadriceps
+    - → glutes
+    - → hamstrings
+    - → knees
+    - → hips
+  - Bench press:
+    - → chest
+    - → shoulders
+    - → triceps
+  - Running:
+    - → hips
+    - → knees
+    - → calves
+    - → ankles
+  - This creates an exercise-to-anatomy graph.
+- 16. Why fitness data matters medically
+  - Fitness data should provide context, not clinical conclusions.
+  - Example timeline:
+    - Running volume increases
+    - User reports leg symptoms
+    - Doctor appointment
+    - MRI performed
+    - Specific finding documented
+    - Treatment begins
+    - Running volume decreases
+    - Physiotherapy begins
+    - User returns to running
+  - BodyBrain can explain the timeline without pretending that activity data alone proves causation.
+- 17. Personal Health Timeline
+  - Every event enters one chronological timeline.
+  - Events might include:
+    - Workout
+    - Symptom
+    - Doctor appointment
+    - MRI
+    - X-ray
+    - Prescription
+    - Diagnosis
+    - Surgery
+    - Physiotherapy
+    - Medication change
+    - Recovery milestone
+    - Fitness activity
+  - Users can filter:
+    - By body part
+    - By condition
+    - By injury
+    - By source
+    - By clinician
+    - By time range
+    - By evidence type
+- 18. Body Memory Graph
+  - Underneath the timeline is a graph of relationships.
+  - Example:
+    - Person
+    - → has → Right knee
+    - → experienced → Pain
+    - → following → Running increase
+    - → evaluated during → Orthopedic appointment
+    - → investigated by → MRI
+    - → identified → Meniscus finding
+    - → treated with → Physiotherapy
+    - → associated with → Exercise modification
+    - → followed by → Recovery
+  - This graph is what allows the AI to answer questions requiring information from several different sources.
+- 19. BodyBrain memory architecture
+  - Every piece of information becomes a normalized Memory Object.
+  - Suggested core fields:
+    - memory_id
+    - user_id
+    - timestamp
+    - memory_type
+    - title
+    - description
+    - body_structure
+    - body_structure_id
+    - laterality
+    - anatomical_level
+    - source_type
+    - source_id
+    - original_evidence
+    - embedding
+    - metadata
+    - confidence
+  - Memory types:
+    - IMAGING
+    - RADIOLOGY_FINDING
+    - DOCTOR_DISCUSSION
+    - DIAGNOSIS
+    - PRESCRIPTION
+    - PROCEDURE
+    - LAB
+    - SYMPTOM
+    - INJURY
+    - PHYSIOTHERAPY
+    - WORKOUT
+    - ACTIVITY
+    - WEARABLE_METRIC
+    - USER_NOTE
+    - RECOVERY_EVENT
+- 20. Separate Evidence Objects
+  - Particularly important clinical claims should also become Evidence Objects.
+  - Suggested fields:
+    - Finding
+    - Anatomical structure
+    - Laterality
+    - Level
+    - Severity
+    - Date
+    - Source document
+    - Source page/section
+    - Clinician
+    - Evidence category
+    - Original text
+    - Structured interpretation
+  - An agent should prefer these objects when answering clinical-history questions.
+- 21. Agent retrieval
+  - A question such as:
+    - "Tell me what happened with my lower back."
+  - should trigger several retrieval paths:
+    - Detect anatomy
+    - Retrieve clinical records
+    - Retrieve relevant imaging findings
+    - Retrieve doctor discussions
+    - Retrieve prescriptions
+    - Retrieve symptoms
+    - Retrieve related activity
+    - Retrieve treatment/recovery events
+    - Sort by chronology
+    - Follow graph relationships
+    - Generate answer with provenance
+  - This is more powerful than basic vector RAG.
+- 22. BodyBrain Agent tools
+  - Give the personal agent clear internal tools such as:
+    - search_memories
+    - get_anatomical_history
+    - get_imaging_history
+    - get_doctor_discussions
+    - get_prescriptions
+    - get_injury_episode
+    - get_activity_history
+    - get_timeline
+    - get_source_evidence
+    - prepare_doctor_summary
+    - create_memory
+  - The agent chooses tools according to the user's question.
+- 23. Example questions
+  - "Tell me the complete history of my right knee."
+  - "What exactly did my MRI show?"
+  - "Which nerve did the report mention?"
+  - "Show me where that nerve is."
+  - "What did my doctor say about the MRI?"
+  - "Why was I prescribed this medication?"
+  - "When did the symptoms first appear?"
+  - "What exercises was I doing before this started?"
+  - "How did my activity change during recovery?"
+  - "What treatment have I already tried?"
+  - "Show me every medical record related to my shoulder."
+  - "Prepare the full history for my new doctor."
+- 24. Doctor Share Mode
+  - The patient chooses:
+    - Body region
+    - Condition
+    - Date range
+    - Records
+    - Medications
+    - Fitness context
+    - Symptoms
+  - BodyBrain produces a structured shareable history.
+  - Example sections:
+    - Current concern
+    - Important history
+    - Anatomical findings
+    - Imaging timeline
+    - Symptoms
+    - Treatments attempted
+    - Current medications
+    - Previous medications
+    - Doctor discussions
+    - Recovery progression
+    - Supporting documents
+  - Every summarized finding should remain linked to its original source.
+  - The goal is to help the patient carry their context from one clinician to another.
+- 25. Emergency Health Summary
+  - BodyBrain could maintain an optional patient-controlled emergency profile containing:
+    - Allergies
+    - Current medications
+    - Important diagnoses
+    - Previous surgeries
+    - Critical medical history
+    - Emergency contacts
+    - Recent major events
+  - This should be a compact subset of the much larger BodyBrain history.
+- 26. Personal Digital Twin
+  - The 3D model eventually becomes more than a generic anatomy viewer.
+  - Version 1:
+    - Generic anatomy + personal memories
+  - Version 2:
+    - Personal measurements + longitudinal health data
+  - Version 3:
+    - Personal medical imaging connected to anatomy
+  - Version 4:
+    - Patient-specific anatomical reconstruction
+  - Version 5:
+    - Physiological modeling
+  - MONAI Physio is relevant to this longer-term direction because it is currently aimed at personalized physiological digital twins derived from 3D/4D medical images, including subject-specific physiological modeling. GitHub
+- 27. Suggested user interface
+  - Main screen
+    - Large interactive 3D body
+    - BodyBrain chat
+    - Timeline
+    - Recent memories
+  - When a structure is selected
+    - Anatomical name
+    - Clinical findings
+    - Imaging
+    - Symptoms
+    - Doctor notes
+    - Medications
+    - Treatments
+    - Fitness activity
+    - Recovery timeline
+  - Imaging screen
+    - MRI/X-ray/CT viewer
+    - Radiology report
+    - Extracted findings
+    - Linked 3D anatomy
+  - Timeline screen
+    - Chronological history
+  - Doctor mode
+    - Prepared clinical history
+    - Supporting evidence
+    - Export/share controls
+  - The user should be able to move naturally between record → anatomy → timeline → agent.
+- 28. Ideal imaging interaction
+  - Open MRI.
+  - Show report next to it.
+  - Extract relevant finding.
+  - Highlight corresponding structure in the 3D model.
+  - User clicks highlighted structure.
+  - BodyBrain retrieves:
+    - Historical symptoms
+    - Previous scans
+    - Doctor discussion
+    - Medication
+    - Physiotherapy
+    - Fitness context
+    - Current status
+  - This interaction demonstrates the entire vision in a few seconds.
+- 29. Recommended technical architecture
+  - Frontend
+    - React
+    - TypeScript
+    - Three.js
+    - Human Atlas-derived viewer
+  - Backend
+    - FastAPI or Next.js API
+  - Relational database
+    - PostgreSQL / Supabase
+  - Semantic memory
+    - pgvector
+  - Files
+    - Object storage
+  - Agent
+    - OpenAI API
+  - Imaging
+    - DICOM-compatible viewer later
+  - Fitness
+    - Strava integration first
+  - Healthcare interoperability
+    - FHIR-compatible model later
+  - Advanced imaging
+    - MONAI ecosystem later
+- 30. Data ingestion architecture
+  - Inputs:
+    - Medical files
+    - Imaging
+    - Doctor notes
+    - Prescriptions
+    - Strava
+    - Wearables
+    - Gym routines
+    - User notes
+  - Flow:
+    - Data source
+    - → Parser
+    - → Entity extraction
+    - → Anatomy mapping
+    - → Evidence extraction
+    - → Relationship building
+    - → Memory database
+    - → Vector index
+    - → BodyBrain agent
+    - → 3D body / timeline / chat
+- 31. FHIR-compatible future architecture
+  - Medical concepts can later map to resources such as:
+    - Patient
+    - ImagingStudy
+    - DiagnosticReport
+    - Observation
+    - Condition
+    - Medication
+    - Encounter
+    - Procedure
+    - DocumentReference
+  - This gives BodyBrain a path toward real healthcare-system integrations without requiring the hackathon prototype to implement full interoperability immediately. HL7
+- 32. Hackathon MVP
+  - Do not attempt the complete future product.
+  - Build one vertical slice that demonstrates the whole concept.
+  - MVP:
+    - Interactive 3D body
+    - One anatomical problem area
+    - MRI/radiology report upload
+    - Doctor note upload
+    - Prescription record
+    - Structured anatomical extraction
+    - Body-part memory
+    - Timeline
+    - Strava-style activity history
+    - Personal agent
+    - Evidence references
+    - Doctor summary generation
+- 33. Best hackathon case study
+  - Use one fictional patient with a spine/nerve problem.
+  - Example timeline:
+    - January: normal gym and running
+    - February: training volume increases
+    - March 2: user notes leg discomfort
+    - March 8: numbness begins
+    - March 12: doctor appointment
+    - March 15: lumbar MRI
+    - March 16: radiology finding attached to specific level
+    - March 19: doctor discusses result
+    - March 19: medication prescribed
+    - March 25: physiotherapy begins
+    - April: activity modified
+    - May: symptoms improve
+    - June: return to normal activity
+  - This one scenario allows you to demonstrate every layer of BodyBrain.
+- 34. Hackathon demo
+  - Start with the 3D body.
+  - Say:
+    - "Most AI assistants know a lot about medicine, but they know almost nothing about what has happened to your body."
+  - Upload an MRI report.
+  - BodyBrain extracts the anatomical finding.
+  - Relevant anatomy highlights.
+  - Open doctor notes.
+  - Show treatment and prescription.
+  - Show Strava/gym context before and after the event.
+  - Ask:
+    - "Tell me the complete story of this problem."
+  - Agent produces chronological history.
+  - Ask:
+    - "Which nerve was involved, and why are you saying that?"
+  - Agent opens the supporting report.
+  - Finally:
+    - "Prepare this for my new doctor."
+  - Generate the patient-controlled medical history.
+- 35. The killer feature
+  - The strongest feature is not simply:
+    - AI
+    - 3D anatomy
+    - MRI parsing
+    - Strava
+    - RAG
+  - It is:
+    - BodyBrain can explain its personal memory through evidence.
+  - "Why do you think my S1 nerve was involved?"
+  - The answer should come from the user's actual medical history, not generic model knowledge.
+- 36. The strongest differentiation
+  - A medical portal stores records.
+  - A PACS viewer shows scans.
+  - Strava remembers activities.
+  - Wearables remember metrics.
+  - Gym apps remember workouts.
+  - Notes remember conversations.
+  - AI chatbots answer questions.
+  - BodyBrain remembers how all of those things relate to the same human body over time.
+- 37. What BodyBrain should not claim
+  - It should not present an AI inference as though a radiologist or physician documented it.
+  - It should distinguish between:
+    - Record fact
+    - Patient report
+    - Extracted structured information
+    - AI anatomical mapping
+  - That distinction actually makes the demo stronger because the user can trust where information came from.
+- 38. Future roadmap
+  - Phase 1
+    - Personal medical memory
+    - 3D anatomy
+    - Document ingestion
+    - Chat
+  - Phase 2
+    - Strava
+    - Gym data
+    - Wearable integrations
+    - Daily memory
+  - Phase 3
+    - DICOM imaging viewer
+    - Advanced anatomical linking
+    - Doctor-record import
+  - Phase 4
+    - FHIR integration
+    - Hospital/clinic interoperability
+  - Phase 5
+    - Patient-specific anatomical reconstruction
+    - Advanced MONAI imaging workflows
+  - Phase 6
+    - Personal physiological digital twin
+    - Longitudinal multi-year body memory
+- 39. Final product positioning
+  - BodyBrain is the personal memory layer for your physical life.
+  - It connects daily activity and fitness with clinical history.
+  - It transforms static medical records into an anatomical memory.
+  - It preserves doctor discussions and treatment decisions.
+  - It shows where documented problems occurred.
+  - It remembers how they evolved.
+  - It lets the patient carry that context forward.
+- 40. Final pitch
+  - BodyBrain is a personal AI agent that builds a continuously updated memory of your body. It connects MRI, X-ray, CT, medical reports, doctor discussions, prescriptions, treatments, injuries, symptoms, workouts, Strava activities, and wearable data to an interactive 3D anatomical model and timeline. When a medical record identifies a specific structure, such as a disc, joint, tendon, or nerve, BodyBrain maps that evidence to the corresponding anatomy and keeps the original record attached. Over time, it becomes a living history of what happened to your body, where it happened, what your doctors said, what treatment followed, and how you recovered. When needed, the patient can turn that memory into a structured, source-backed history to share with a doctor.
+- 41. Shortest possible pitch
+  - BodyBrain remembers your body.
+  - From yesterday's workout to an MRI from five years ago, it connects every piece of your physical history to the exact place it belongs.
