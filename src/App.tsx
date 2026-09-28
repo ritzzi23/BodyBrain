@@ -14,7 +14,7 @@ const FRONTEND_ONLY = import.meta.env.VITE_FRONTEND_ONLY === 'true';
 const LOCAL_SETUP_URL = 'https://github.com/ritzzi23/BodyBrain#run-locally';
 
 const BASE_SYSTEMS: SystemId[] = ['skeletal', 'cardiac', 'sensory', 'nervous', 'respiratory', 'digestive', 'urinary', 'endocrine', 'reproductive'];
-const initialState: SceneState = { explode: 0, visible: BASE_SYSTEMS, selected: [], isolate: false, view: 'front', rotate: false, reset: 0, labels: true, zoom: 1, opacity: 1, hidden: [] };
+const initialState: SceneState = { explode: 0, visible: SYSTEMS.map(system => system.id), selected: [], isolate: false, view: 'front', rotate: false, reset: 0, labels: true, zoom: 1, opacity: 1, hidden: [] };
 type Memory = { id: string; concept: Concept; text: string; createdAt: string; recordId?: string };
 type Panel = 'overview' | 'memories' | 'timeline';
 
