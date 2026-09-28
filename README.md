@@ -2,6 +2,8 @@
 
 A full-body anatomy explorer with an evidence-backed memory backend. React, TypeScript, Three.js, FastAPI, SQLite, and configurable ClawMax/Cognee integrations.
 
+**Live demo:** [bodybrain.vercel.app](https://bodybrain.vercel.app)
+
 Project source and submission materials: [ritzzi23/BodyBrain](https://github.com/ritzzi23/BodyBrain).
 
 ## Hosted frontend

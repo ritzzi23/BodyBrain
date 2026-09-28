@@ -7,6 +7,8 @@ video sharing are separate tasks.
 
 **Project source:** https://github.com/ritzzi23/BodyBrain
 
+**Live hosted demo:** https://bodybrain.vercel.app
+
 The hosted frontend supports anatomy exploration, browser notes, and bookmarks.
 Its **Records & memory** panel links to local setup instructions. Run the full
 application locally for record imports, review, recall, Cognee, and ClawMax; the
