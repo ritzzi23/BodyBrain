@@ -5,14 +5,17 @@ import {
   Heart, Layers3, Leaf, Menu, Minus, Moon, MousePointer2, Plus, Sun,
   RotateCcw, RotateCw, Search, ShieldCheck, Sparkles, StickyNote, X,
 } from 'lucide-react';
-import AnatomyScene from './anatomy/scene';
+import { backend } from './backend-api';
+const AnatomyScene = lazy(() => import('./anatomy/scene'));
 import { SYSTEMS, EXPLANATIONS, explanation, type Atlas, type Concept, type SceneState, type SystemId, type View } from './anatomy/anatomy';
 import { REGIONS, FEATURED, getRegionConcepts } from './body-regions';
 const BackendPanel = lazy(() => import('./BackendPanel'));
+const FRONTEND_ONLY = import.meta.env.VITE_FRONTEND_ONLY === 'true';
+const LOCAL_SETUP_URL = 'https://github.com/ritzzi23/BodyBrain#run-locally';
 
 const BASE_SYSTEMS: SystemId[] = ['skeletal', 'cardiac', 'sensory', 'nervous', 'respiratory', 'digestive', 'urinary', 'endocrine', 'reproductive'];
 const initialState: SceneState = { explode: 0, visible: BASE_SYSTEMS, selected: [], isolate: false, view: 'front', rotate: false, reset: 0, labels: true, zoom: 1, opacity: 1, hidden: [] };
-type Memory = { id: string; concept: Concept; text: string; createdAt: string };
+type Memory = { id: string; concept: Concept; text: string; createdAt: string; recordId?: string };
 type Panel = 'overview' | 'memories' | 'timeline';
 
 function readSaved<T,>(key: string, fallback: T): T {
@@ -64,6 +67,7 @@ export default function App() {
   const [bookmarks, setBookmarks] = useState<Concept[]>(() => readSaved('bodybrain.bookmarks.v1', []));
   const [toast, setToast] = useState('');
   const searchRef = useRef<HTMLInputElement>(null);
+  const importWorkspaceRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
@@ -116,23 +120,64 @@ export default function App() {
   const clearSelection = () => { setChosen(null); setState(s => ({ ...s, selected: [], isolate: false, explode: 0, zoom: 1 })); };
   const preset = (visible: SystemId[]) => { clearSelection(); setState(s => ({ ...s, visible, hidden: [], explode: 0, reset: s.reset + 1 })); };
   const toggleSystem = (id: SystemId) => { clearSelection(); setState(s => ({ ...s, visible: s.visible.includes(id) ? s.visible.filter(x => x !== id) : [...s.visible, id] })); };
-  const saveNote = () => {
+  const saveNote = async () => {
     if (!chosen || !note.trim()) return;
-    const next = [{ id: crypto.randomUUID(), concept: chosen, text: note.trim(), createdAt: new Date().toISOString() }, ...memories];
-    try { localStorage.setItem('bodybrain.memories.v1', JSON.stringify(next)); setMemories(next); setNote(''); setModal(null); setPanel('memories'); setToast('Memory saved on this device'); } catch { setToast('Browser storage is full. Your note has not been saved.'); }
+    const memory = { id: crypto.randomUUID(), concept: chosen, text: note.trim(), createdAt: new Date().toISOString() };
+    const next = [memory, ...memories];
+    try { localStorage.setItem('bodybrain.memories.v1', JSON.stringify(next)); setMemories(next); setNote(''); setModal(null); setPanel('memories'); setToast(FRONTEND_ONLY ? 'Memory saved in this browser.' : 'Note saved. Creating review draft…'); } catch { setToast('Browser storage is full. Your note has not been saved.'); return; }
+    if (!FRONTEND_ONLY) await linkMemory(memory);
   };
+  const linkMemory = async (memory: Memory) => {
+    if (FRONTEND_ONLY) { setBackendOpen(true); return; }
+    try {
+      const record = await backend.addNote(memory.id, memory.text, memory.concept.id, memory.createdAt.slice(0, 10));
+      setMemories(previous => {
+        const next = previous.map(item => item.id === memory.id ? { ...item, recordId: record.id } : item);
+        try { localStorage.setItem('bodybrain.memories.v1', JSON.stringify(next)); } catch { /* backend draft is already durable */ }
+        return next;
+      });
+      setToast('Saved to Records & memory. Review it before recall.');
+    } catch { setToast('Note stays in this browser. Use Save to records when the backend is available.'); }
+  };
+  const openRecords = () => { if (!FRONTEND_ONLY) setBackendLoaded(true); setBackendOpen(true); };
   const toggleBookmark = () => {
     if (!chosen) return;
     const next = selectedBookmark ? bookmarks.filter(c => !sameSelection(c, chosen)) : [...bookmarks, chosen];
     try { localStorage.setItem('bodybrain.bookmarks.v1', JSON.stringify(next)); setBookmarks(next); setToast(selectedBookmark ? 'Structure removed from saved' : 'Structure saved'); } catch { setToast('Could not save to browser storage'); }
   };
   const exportMemories = () => {
-    const blob = new Blob([JSON.stringify(memories, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = 'bodybrain-memories.json'; a.click(); URL.revokeObjectURL(url);
+    const blob = new Blob([JSON.stringify({ format: 'bodybrain.browser.v1', memories, bookmarks }, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = 'bodybrain-browser-backup.json'; a.click(); URL.revokeObjectURL(url);
+  };
+  const importWorkspace = async (file: File) => {
+    try {
+      if (!atlas || file.size > 5_000_000) throw new Error('Choose a browser backup under 5 MB after the atlas has loaded.');
+      const saved = JSON.parse(await file.text());
+      const imported = Array.isArray(saved) ? saved : saved.format === 'bodybrain.browser.v1' ? saved.memories : null;
+      if (!Array.isArray(imported) || imported.length > 10000) throw new Error('This is not a supported browser backup.');
+      const valid = imported.map((item: Memory) => {
+        const concept = atlas.concepts.find(c => c.id === item?.concept?.id);
+        if (!concept || typeof item.id !== 'string' || !/^[0-9a-f-]{36}$/i.test(item.id) || typeof item.text !== 'string' || !item.text.trim() || item.text.length > 5000 || !Number.isFinite(Date.parse(item.createdAt))) throw new Error('The backup contains an invalid note.');
+        return { id: item.id, text: item.text, concept, createdAt: item.createdAt };
+      });
+      const next = [...new Map([...valid, ...memories].map(item => [item.id, item])).values()];
+      const incomingBookmarks = Array.isArray(saved.bookmarks) ? saved.bookmarks.map((item: Concept) => atlas.concepts.find(c => c.id === item?.id)).filter(Boolean) as Concept[] : [];
+      const nextBookmarks = [...new Map([...incomingBookmarks, ...bookmarks].map(item => [item.id, item])).values()];
+      const oldNotes = localStorage.getItem('bodybrain.memories.v1'), oldBookmarks = localStorage.getItem('bodybrain.bookmarks.v1');
+      try {
+        localStorage.setItem('bodybrain.memories.v1', JSON.stringify(next));
+        localStorage.setItem('bodybrain.bookmarks.v1', JSON.stringify(nextBookmarks));
+      } catch (error) {
+        if (oldNotes === null) localStorage.removeItem('bodybrain.memories.v1'); else localStorage.setItem('bodybrain.memories.v1', oldNotes);
+        if (oldBookmarks === null) localStorage.removeItem('bodybrain.bookmarks.v1'); else localStorage.setItem('bodybrain.bookmarks.v1', oldBookmarks);
+        throw error;
+      }
+      setMemories(next); setBookmarks(nextBookmarks); setToast('Notes and bookmarks merged. Existing notes were kept.');
+    } catch (error) { setToast(error instanceof Error ? error.message : 'Browser backup could not be restored.'); }
   };
   const removeMemory = (id: string) => {
     const next = memories.filter(memory => memory.id !== id);
-    try { localStorage.setItem('bodybrain.memories.v1', JSON.stringify(next)); setMemories(next); setToast('Memory removed'); } catch { setToast('Could not update browser storage'); }
+    try { localStorage.setItem('bodybrain.memories.v1', JSON.stringify(next)); setMemories(next); setToast(FRONTEND_ONLY ? 'Browser note removed.' : 'Browser copy removed. Any record copy remains in Records & memory.'); } catch { setToast('Could not update browser storage'); }
   };
   const viewNames: [View, string][] = [['front', 'Front'], ['back', 'Back'], ['side', 'Side'], ['three-quarter', 'Perspective']];
 
@@ -145,9 +190,9 @@ export default function App() {
         <button aria-label="Body atlas" title="Body atlas" className={panel === 'overview' ? 'selected' : ''} onClick={() => { setPanel('overview'); setMobilePanel(null); }}><Box size={15} />Body atlas</button>
         <button aria-label="My memories" title="My memories" className={panel === 'memories' ? 'selected' : ''} onClick={() => { clearSelection(); setPanel('memories'); setMobilePanel('details'); }}><Bookmark size={15} />My memories<span className="nav-count">{memories.length}</span></button>
         <button aria-label="Timeline" title="Timeline" className={panel === 'timeline' ? 'selected' : ''} onClick={() => { clearSelection(); setPanel('timeline'); setMobilePanel('details'); }}><Clock3 size={15} />Timeline</button>
-        <button aria-label="Records and memory" title="Records & memory" className={backendOpen ? 'selected' : ''} onClick={() => { setBackendLoaded(true); setBackendOpen(true); }}><Brain size={15} />Records & memory</button>
+        <button aria-label="Records and memory" title="Records & memory" className={backendOpen ? 'selected' : ''} onClick={openRecords}><Brain size={15} />Records & memory</button>
       </nav>
-      <div className="header-end"><span className="prototype-badge"><span />Personal atlas</span><button className="icon-button theme-toggle" aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`} title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`} onClick={toggleTheme}>{theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}</button><IconButton label="Help and shortcuts" onClick={() => setModal('help')}><CircleHelp size={18} /></IconButton><div className="avatar" title="Local workspace">You</div></div>
+      <div className="header-end"><span className="prototype-badge"><span />{FRONTEND_ONLY ? 'Hosted preview' : 'Personal atlas'}</span><button className="icon-button theme-toggle" aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`} title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`} onClick={toggleTheme}>{theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}</button><IconButton label="Help and shortcuts" onClick={() => setModal('help')}><CircleHelp size={18} /></IconButton><div className="avatar" title="Browser workspace">You</div></div>
     </header>
 
     <div className="workspace">
@@ -167,7 +212,7 @@ export default function App() {
       </aside>
 
       <section className="body-stage" aria-label="Interactive body atlas">
-        {atlas && <AnatomyScene atlas={atlas} theme={theme} state={{ ...state, inspectorOpen: false }} onSelect={choosePart} onProgress={setProgress} onError={setError} />}
+        {atlas && <Suspense fallback={<div className="scene-loading" role="status">Loading anatomy viewer…</div>}><AnatomyScene atlas={atlas} theme={theme} state={{ ...state, inspectorOpen: false }} onSelect={choosePart} onProgress={setProgress} onError={setError} /></Suspense>}
         <div className="stage-top"><span className="stage-label"><span className="live-dot" />{visibleCount.toLocaleString()} structures visible</span><div className="stage-top-actions"><span className="model-tag">ADULT · MALE</span><IconButton label="Reset view and anatomy" onClick={reset}><RotateCcw size={17} /></IconButton><IconButton label="Toggle fullscreen" onClick={() => { if (document.fullscreenElement) void document.exitFullscreen(); else void document.documentElement.requestFullscreen().catch(() => setToast('Fullscreen is unavailable in this browser')); }}><Expand size={16} /></IconButton></div></div>
         <div className="mobile-stage-tools"><button onClick={() => setMobilePanel('browse')}><Menu size={17} />Browse</button><button onClick={() => setMobilePanel('details')}><StickyNote size={17} />Details</button></div>
         {chosen && <div className="selection-chip"><span /><span>{chosen.name}</span><button aria-label="Clear selection" onClick={clearSelection}><X size={13} /></button></div>}
@@ -190,16 +235,27 @@ export default function App() {
         <div className="inspector-scroll">
           {panel === 'overview' && !chosen && <div className="welcome-panel"><span className="welcome-symbol"><Sparkles size={26} strokeWidth={1.3} /></span><h2>A closer look<br />at <span>you.</span></h2><p>Every part has a story.<br />Explore the anatomy that connects it all.</p><div className="welcome-rule" /><div className="section-label">A GOOD PLACE TO START</div><div className="featured-list">{FEATURED.map((f, i) => { const Icon = [Heart, Brain, Activity, Leaf][i]; return <button key={f.name} onClick={() => chooseName(f.name)}><span className={`featured-icon featured-${i}`}><Icon size={22} strokeWidth={1.3} /></span><span><strong>{f.label}</strong><small>{f.description}</small></span><ArrowRight size={15} /></button>; })}</div><div className="memory-intro"><span><span className="tiny-dot" />BUILT AROUND YOU</span><p>Your anatomy is the starting point.<br />Your memories make it personal.</p><button onClick={() => { setPanel('memories'); }}>Explore body memory<ArrowRight size={13} /></button></div></div>}
           {chosen && panel === 'overview' && <><div className="system-label" style={{ color: system?.color }}><span style={{ background: system?.color }} />{system?.name ?? 'Anatomy'}</div><h2 className="structure-heading">{chosen.name}</h2><div className="structure-reference">{chosen.id}<span>·</span>{chosen.elements.length} modeled {chosen.elements.length === 1 ? 'piece' : 'pieces'}</div><div className="detail-tabs"><button className="active">Overview</button><button onClick={() => setPanel('memories')}>Memories<span>{relevantMemories.length}</span></button></div><p className="anatomy-description">{selectedPart ? explanation(chosen.name, selectedPart.system) : ''}</p>{!EXPLANATIONS[chosen.name.toLowerCase()] && <span className="context-caption">About this anatomical system</span>}<div className="detail-info"><span>Reference anatomy<strong>Adult human · Male</strong></span><span>Source<strong>BodyParts3D</strong></span></div>{chosen.elements.length > 1 && <div className="included-structures"><span className="section-label">INCLUDED STRUCTURES</span>{chosen.elements.slice(0, 8).map(id => <button key={id} onClick={() => choosePart(id)}><span>{parts.get(id)?.name}</span><ChevronRight size={12} /></button>)}{chosen.elements.length > 8 && <small>+ {chosen.elements.length - 8} more modeled pieces</small>}</div>}<button className="add-memory-card" onClick={() => { setNote(''); setModal('note'); }}><span><Plus size={17} /></span><div><strong>Start a body memory</strong><small>Add a note to this structure</small></div><ArrowRight size={15} /></button></>}
-          {panel !== 'overview' && <div className="memories-panel">{chosen && <button className="back-link" onClick={() => setPanel('overview')}><ArrowLeft size={14} />{chosen.name}</button>}<h2>{panel === 'timeline' ? 'Your body’s story.' : chosen ? 'Connected memories.' : 'A memory of you.'}</h2><p className="panel-description">{panel === 'timeline' ? 'The moments you save, connected through time.' : 'Personal notes connected to the exact structures you choose.'}</p>{relevantMemories.length === 0 ? <div className="memory-empty"><span><StickyNote size={28} strokeWidth={1.2} /></span><h3>Your story starts here</h3><p>Select any structure, then add a note. It will stay connected to that part of your body.</p>{chosen ? <button className="primary-button" onClick={() => setModal('note')}><Plus size={15} />Add your first memory</button> : <button className="primary-button" onClick={() => chooseName('heart')}><Focus size={15} />Explore a structure</button>}</div> : <><div className={`memory-list ${panel === 'timeline' ? 'timeline-list' : ''}`}>{relevantMemories.map(m => <article className="memory-item" key={m.id}><div className="memory-meta"><time dateTime={m.createdAt}>{new Date(m.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</time><button className="remove-memory" aria-label={`Remove memory for ${m.concept.name}`} title="Remove memory" onClick={() => removeMemory(m.id)}><X size={12} /></button></div><button onClick={() => choose(m.concept, true)}>{m.concept.name}<ArrowRight size={13} /></button><p>{m.text}</p><span><StickyNote size={11} />Personal note</span></article>)}</div><button className="secondary-button export-button" onClick={exportMemories}><ArrowDownToLine size={15} />Export memories</button>{chosen && <button className="primary-button" onClick={() => setModal('note')}><Plus size={15} />Add memory</button>}</>}<div className="local-storage-note"><ShieldCheck size={14} /><span>Saved in this browser on this device.<br />Export to keep a separate copy.</span></div></div>}
+          {panel !== 'overview' && <div className="memories-panel">{chosen && <button className="back-link" onClick={() => setPanel('overview')}><ArrowLeft size={14} />{chosen.name}</button>}<h2>{panel === 'timeline' ? 'Your body’s story.' : chosen ? 'Connected memories.' : 'A memory of you.'}</h2><p className="panel-description">{panel === 'timeline' ? 'The moments you save, connected through time.' : 'Personal notes connected to the exact structures you choose.'}</p>{relevantMemories.length === 0 ? <div className="memory-empty"><span><StickyNote size={28} strokeWidth={1.2} /></span><h3>Your story starts here</h3><p>Select any structure, then add a note. It will stay connected to that part of your body.</p>{chosen ? <button className="primary-button" onClick={() => setModal('note')}><Plus size={15} />Add your first memory</button> : <button className="primary-button" onClick={() => chooseName('heart')}><Focus size={15} />Explore a structure</button>}</div> : <><div className={`memory-list ${panel === 'timeline' ? 'timeline-list' : ''}`}>{relevantMemories.map(m => <article className="memory-item" key={m.id}><div className="memory-meta"><time dateTime={m.createdAt}>{new Date(m.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</time><button className="remove-memory" aria-label={`Remove memory for ${m.concept.name}`} title="Remove memory" onClick={() => removeMemory(m.id)}><X size={12} /></button></div><button onClick={() => choose(m.concept, true)}>{m.concept.name}<ArrowRight size={13} /></button><p>{m.text}</p><span><StickyNote size={11} />Personal note</span>{FRONTEND_ONLY ? <button onClick={openRecords}>Records require the local app<ArrowRight size={13} /></button> : m.recordId ? <button onClick={openRecords}>Open records for review<ArrowRight size={13} /></button> : <button onClick={() => void linkMemory(m)}>Save to records<ArrowRight size={13} /></button>}</article>)}</div><button className="secondary-button export-button" onClick={exportMemories}><ArrowDownToLine size={15} />Export memories</button>{chosen && <button className="primary-button" onClick={() => setModal('note')}><Plus size={15} />Add memory</button>}</>}<div className="browser-backup-actions"><button className="secondary-button" onClick={exportMemories}>Back up notes and bookmarks</button><button className="secondary-button" disabled={!atlas} onClick={() => importWorkspaceRef.current?.click()}>Import browser backup</button><input ref={importWorkspaceRef} hidden type="file" accept=".json,application/json" onChange={event => { const file = event.target.files?.[0]; if (file) void importWorkspace(file); event.target.value = ''; }} /></div><div className="local-storage-note"><ShieldCheck size={14} /><span>{FRONTEND_ONLY ? 'Notes and bookmarks stay in this browser. Records and recall are available in the local app.' : 'Notes stay in this browser; saved record drafts join your reviewed history after approval.'}<br />Export to keep a separate copy.</span></div></div>}
         </div>
         {chosen && panel === 'overview' ? <div className="inspector-actions"><button className="primary-button" onClick={() => setState(s => ({ ...s, isolate: !s.isolate, explode: 0, zoom: 1 }))}><Focus size={16} />{state.isolate ? 'Show surrounding anatomy' : 'Isolate structure'}</button><div><button onClick={() => { setState(s => ({ ...s, hidden: [...new Set([...(s.hidden ?? []), ...chosen.elements])], selected: [], isolate: false, explode: 0 })); setChosen(null); }}><EyeOff size={14} />Hide</button><button onClick={clearSelection}><X size={14} />Clear selection</button></div></div> : <div className="inspector-hint"><MousePointer2 size={16} /><p>Select the model to inspect a structure.<br />There’s more beneath the surface.</p></div>}
       </aside>
     </div>
     <footer className="app-footer"><span><span className="tiny-dot" />A living map of the human body</span><span>BodyParts3D reference anatomy<span className="footer-separator">/</span><button onClick={() => setModal('credits')}>Made for exploration<ArrowRight size={11} /></button></span></footer>
     {toast && <div className="toast" role="status"><Check size={16} />{toast}</div>}
-    {backendLoaded && <Suspense fallback={backendOpen ? <div className="toast" role="status">Loading records workspace…<button aria-label="Cancel opening records" onClick={() => setBackendOpen(false)}><X size={15} /></button></div> : null}><BackendPanel open={backendOpen} selectedConcept={chosen} onClose={() => setBackendOpen(false)} onSelectConcept={concept => choose(concept, true)} /></Suspense>}
-    {modal === 'note' && chosen && <Modal title="Add a body memory" onClose={() => setModal(null)}><div className="note-structure"><Focus size={16} />{chosen.name}</div><p className="modal-description">A personal note, connected to this structure. Saved only in this browser.</p><form onSubmit={e => { e.preventDefault(); saveNote(); }}><label className="note-label" htmlFor="memory-note">Your note</label><textarea id="memory-note" autoFocus placeholder="What would you like to remember?" value={note} onChange={e => setNote(e.target.value)} maxLength={5000} required /><div className="modal-actions"><button className="secondary-button" type="button" onClick={() => setModal(null)}>Cancel</button><button className="primary-button" type="submit" disabled={!note.trim()}><Plus size={15} />Save memory</button></div></form></Modal>}
+    {FRONTEND_ONLY && backendOpen && <Modal title="Records & memory" onClose={() => setBackendOpen(false)}>
+      <div className="hosted-guide-heading"><span><Brain size={24} strokeWidth={1.5} /></span><div><span className="eyebrow">HOSTED PREVIEW</span><h3>Continue in the local app</h3></div></div>
+      <p className="modal-description">Explore the full anatomy atlas, save structures, and write body memories here. Notes and bookmarks stay in this browser.</p>
+      <div className="hosted-guide-feature"><ShieldCheck size={18} /><p>Record uploads, finding review, and answers from your records require the local BodyBrain app. This preview has no connected records service.</p></div>
+      <ol className="hosted-guide-steps">
+        <li><strong>Start BodyBrain locally</strong><span>Follow the GitHub setup guide to run the app and its records service on your computer.</span></li>
+        <li><strong>Bring your browser memories</strong><span>Export a browser backup here, then open My memories → Import browser backup in the local app.</span></li>
+        <li><strong>Build your reviewed history</strong><span>Save notes to records or add a report, review the findings, then ask questions with source citations.</span></li>
+      </ol>
+      <div className="hosted-guide-actions"><a className="primary-button" href={LOCAL_SETUP_URL} target="_blank" rel="noreferrer">Open local setup guide<ArrowRight size={15} /></a><button className="secondary-button" onClick={exportMemories}><ArrowDownToLine size={15} />Export browser backup</button></div>
+    </Modal>}
+    {!FRONTEND_ONLY && backendLoaded && <Suspense fallback={backendOpen ? <div className="toast" role="status">Loading records workspace…<button aria-label="Cancel opening records" onClick={() => setBackendOpen(false)}><X size={15} /></button></div> : null}><BackendPanel open={backendOpen} selectedConcept={chosen} onClose={() => setBackendOpen(false)} onSelectConcept={concept => choose(concept, true)} /></Suspense>}
+    {modal === 'note' && chosen && <Modal title="Add a body memory" onClose={() => setModal(null)}><div className="note-structure"><Focus size={16} />{chosen.name}</div><p className="modal-description">{FRONTEND_ONLY ? 'Saved only in this browser. Export your notes to keep a backup or move them to the local BodyBrain app.' : 'Saved in this browser and added to Records & memory as a draft. Review it before it can appear in answers.'}</p><form onSubmit={e => { e.preventDefault(); saveNote(); }}><label className="note-label" htmlFor="memory-note">Your note</label><textarea id="memory-note" autoFocus placeholder="What would you like to remember?" value={note} onChange={e => setNote(e.target.value)} maxLength={5000} required /><div className="modal-actions"><button className="secondary-button" type="button" onClick={() => setModal(null)}>Cancel</button><button className="primary-button" type="submit" disabled={!note.trim()}><Plus size={15} />Save memory</button></div></form></Modal>}
     {modal === 'help' && <Modal title="Make yourself at home" onClose={() => setModal(null)}><p className="modal-description">Explore the atlas with your mouse, keyboard, or touch.</p><div className="shortcut-list">{[['Orbit the body', 'Drag / arrow keys'], ['Pan the view', 'Right-drag / Shift + arrows'], ['Zoom', 'Scroll / + or −'], ['Find a structure', '/ or ⌘K / Ctrl K'], ['Reset the camera', 'Home'], ['Select center structure', 'Enter'], ['Close a panel', 'Escape']].map(([label, key]) => <div key={label}><span>{label}</span><kbd>{key}</kbd></div>)}</div><p className="modal-description">Keyboard camera controls work when the 3D canvas has focus. Search, region lists, and all controls are also keyboard accessible.</p></Modal>}
-    {modal === 'credits' && <Modal title="A body, beautifully connected." onClose={() => setModal(null)}><p className="modal-description">BodyBrain uses a real anatomical reference: {atlas?.parts.length.toLocaleString() ?? '2,234'} meshes and {atlas?.concepts.length.toLocaleString() ?? '3,432'} named concepts across 15 systems.</p><div className="credits-copy"><h3>The anatomy</h3><p>BodyParts3D © The Database Center for Life Science. Licensed under <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noreferrer">CC BY 4.0</a>. An adult male reference; coverage does not include every structure or human variation.</p><h3>The explorer</h3><p>Built on the open-source <a href="https://github.com/ashemag/human-atlas" target="_blank" rel="noreferrer">Human Atlas</a> (MIT). Model geometry was simplified for the web. BodyBrain adds its own interface, interactions, and local body memories.</p><h3>Your personal workspace</h3><p>Quick notes and bookmarks stay in this browser. Reviewed records are saved by your local BodyBrain backend. Connected agents and memory providers use the configuration you choose. The anatomy is an educational reference; BodyBrain does not interpret raw scans.</p><a href="/ATTRIBUTION.md" target="_blank" rel="noreferrer">Full dataset attribution<ArrowRight size={13} /></a></div></Modal>}
+    {modal === 'credits' && <Modal title="A body, beautifully connected." onClose={() => setModal(null)}><p className="modal-description">BodyBrain uses a real anatomical reference: {atlas?.parts.length.toLocaleString() ?? '2,234'} meshes and {atlas?.concepts.length.toLocaleString() ?? '3,432'} named concepts across 15 systems.</p><div className="credits-copy"><h3>The anatomy</h3><p>BodyParts3D © The Database Center for Life Science. Licensed under <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noreferrer">CC BY 4.0</a>. An adult male reference; coverage does not include every structure or human variation.</p><h3>The explorer</h3><p>Built on the open-source <a href="https://github.com/ashemag/human-atlas" target="_blank" rel="noreferrer">Human Atlas</a> (MIT). Model geometry was simplified for the web. BodyBrain adds its own interface, interactions, and local body memories.</p><h3>Your personal workspace</h3><p>{FRONTEND_ONLY ? 'This hosted preview stores notes and bookmarks only in your browser. For record uploads, review, and recall, run the local BodyBrain app using the setup guide in Records & memory.' : 'Bookmarks stay in this browser. Notes can also be saved as reviewable records. Reviewed records are saved by your local BodyBrain backend. Connected agents and memory providers use the configuration you choose.'} The anatomy is an educational reference; BodyBrain does not interpret raw scans.</p><a href="/ATTRIBUTION.md" target="_blank" rel="noreferrer">Full dataset attribution<ArrowRight size={13} /></a></div></Modal>}
   </main>;
 }

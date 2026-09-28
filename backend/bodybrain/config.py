@@ -10,6 +10,7 @@ load_dotenv(ROOT / ".env", override=False)
 
 @dataclass(frozen=True)
 class Settings:
+    workspace_label: str = os.environ.get('BODYBRAIN_WORKSPACE_LABEL', '')
     data_dir: Path = (ROOT / os.environ.get("BODYBRAIN_DATA_DIR", ".bodybrain")).resolve()
     atlas_path: Path = ROOT / "public/models/atlas.json"
     cognee_mode: str = os.environ.get("COGNEE_MODE", "disabled")

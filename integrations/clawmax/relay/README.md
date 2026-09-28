@@ -101,6 +101,25 @@ distributed lock across multiple hosts. Keep one active worker per relay
 dataset pair. Task data and logs remain private local files; the worker sends
 task results and bounded heartbeats through the configured Cognee datasets.
 
+Heartbeat retention deletes this worker's older heartbeats before publishing a
+replacement, keeping at most three tracked heartbeat uploads. Upload intent is
+recorded before the network call so a lost response remains recoverable after
+restart. If scoped deletion or ownership verification fails, no replacement is
+uploaded; the visible heartbeat eventually becomes stale. Provider deletion must
+work for continuous operation. Do not index relay datasets or discard the worker
+ledger to work around a deletion failure.
+
+The file client fails closed when a provider repeats a listing page. A relay
+dataset at the provider's listing cap cannot be safely treated as complete;
+repair provider pagination and scoped deletion before resuming normal operation.
+
 Hosted OpenClaw session transcripts are retained separately by that runtime.
 Deleting a BodyBrain record and its relay files does not erase those hosted
 transcripts. Apply the hosted runtime's own retention controls when required.
+
+An example systemd user unit is provided in `bodybrain-relay.service`. It is not
+installed by the packager or in the currently verified hosted environment. An
+operator with supported host access must adapt it, provide a private
+`~/.config/bodybrain/relay.env` through the host's credential mechanism, stop the
+detached worker, and enable exactly one supervisor. Verify process-crash and
+host-reboot recovery separately; a live heartbeat alone does not prove either.

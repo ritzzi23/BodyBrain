@@ -1,5 +1,17 @@
 # BodyBrain Repository and Functional Audit
 
+> **Dataset integration — September 28, 2026:**
+> [Section 33](#33-synthea-and-fitbit-sample-workspaces--september-28-2026)
+> adds two runnable local sample datasets. Section 32's operational blockers
+> remain open.
+
+> **Latest status — September 28, 2026:** See
+> [Section 32](#32-local-release-work-and-live-relay-results--september-28-2026).
+> The local app is operational and both hosted relay agents passed synthetic
+> ingestion/evidence checks. Full completion is not claimed: remote cleanup
+> returns HTTP 500, Mac login startup failed, and hosted restart supervision
+> remains unverified. Older findings below are historical where superseded.
+
 > **Remediation update — September 27, 2026:** The first repair batch is implemented
 > and verified. [Section 23](#23-first-remediation-batch--september-27-2026) records
 > the changes, fresh test results, and remaining work. Sections 1–22 preserve the
@@ -1446,3 +1458,299 @@ environment because its access challenge did not complete. No statement in this
 section relies on unseen chat content; the findings above come from the local
 source tree, audit ledger, isolated test runs, repository metadata, and local
 health responses.
+
+## 32. Local release work and live relay results — September 28, 2026
+
+**Current scope: one user, locally on this Mac. The app is usable; the whole
+project is not complete.** This updates Sections 30–31 with actual hosted task
+results and the subsequent implementation. Public hosting was not requested.
+
+### 32.1 Implemented since Section 31
+
+- Quick notes now create idempotent backend drafts linked to their selected
+  anatomy. Older/browser-only notes have a retry action. Human review remains
+  mandatory; removing a browser note does not delete its backend record.
+- Browser backup/import covers notes and bookmarks, validates imported content,
+  merges by ID, and supports the previous notes-only format. Browser chat stays
+  in its separate bounded history; it is not included in these backups.
+- Records backup downloads and CLI backup/restore include SQLite and original
+  sources, a versioned SHA-256 manifest, path/inventory validation, size limits,
+  and database integrity checks. Restore requires a new directory, preserves
+  review state, prevents automatic reindexing/task replay, and retains minimal
+  remote-cleanup identities. Credentials and provider/browser data are excluded.
+  Archives contain private plaintext and are not encrypted by the application.
+- A private pre-change backup of the three existing local records was saved at
+  `.runtime/backups/before-local-release-20260927.zip` with mode `0600`.
+- Schema version 1 establishes a migration baseline; unsupported future schema
+  versions are refused. This is not a general migration framework for future
+  application versions.
+- Activity retention previews and explicitly removes old completed task/activity
+  history while protecting pending work and remote-cleanup references. Records,
+  sources, browser chat, and hosted transcripts have separate lifecycles.
+- The records panel probes relay heartbeat state instead of equating configured
+  settings with a live worker. It distinguishes idle/working/offline/probe failure.
+- The 3D viewer loads as a separate module with a visible loading state. The main
+  entry chunk decreased from approximately 740 KB to 242 KB minified; the viewer
+  still occupies approximately 503 KB and triggers the build's size warning.
+  Total anatomy geometry was not reduced or benchmarked on physical low-end
+  devices. The external Google Fonts import was removed and focus visibility
+  improved. The upstream Human Atlas notice is now copied into `public/` so it
+  accompanies generated builds.
+- Added a local UI/API supervisor, duplicate-instance lock, health/heartbeat
+  checker, macOS login installer with post-registration verification, isolated
+  relay smoke script, and isolated browser-test server. The previous runtime
+  smoke entry point now delegates to the correctly isolated script.
+
+### 32.2 Live hosted relay verification
+
+The local environment now selects `CLAWMAX_TRANSPORT=cognee_relay`. The API was
+restarted from this checkout and reports the transport correctly. Its UI and API
+returned healthy responses after restart, and the hosted worker heartbeat was
+ready/online/idle at `2026-09-28T04:32:25Z`.
+
+`scripts/smoke-relay.py` used separate temporary local storage and only the
+synthetic sentence `No fracture of the left femur.`:
+
+- Hosted `bodybrain-ingestion` completed, preserved the complete source quote,
+  and left the record pending human review.
+- After explicit approval in the isolated test, hosted `bodybrain-evidence`
+  completed and returned a citation accepted by exact-source validation.
+- Reported execution durations were 4,839 ms and 4,192 ms respectively, using
+  model `gpt-4.1-mini` through the runtime's `lmstudio` provider label.
+- The result file `.runtime/clawmax-deploy/relay-smoke-result.json` records
+  `status=validated`, `stage=cleanup_pending`, `human_review_preserved=true`,
+  and `exact_citations=true`. **It does not report a fully passed test.**
+- The smoke disabled approved-memory indexing to isolate the relay. Section 25
+  records earlier live Cognee indexing/recall; this run does not establish fresh
+  combined relay + memory-indexing + deletion success.
+
+Cleanup of the synthetic relay data failed. Cognee returned HTTP 500 from the
+document-scoped dataset DELETE route and from the documented scoped `/forget`
+route. The cause inside the hosted provider has not been established. No entire
+dataset was deleted. The synthetic record remains in a deleting state in the
+isolated smoke store with cleanup state retained for retry; the normal three
+local records were not used by this smoke. Use the `state_dir` in the result file
+with `scripts/smoke-relay.py --cleanup-only` after provider deletion is repaired.
+The state was copied with private permissions into
+`.runtime/clawmax-deploy/relay-smoke-state` so it survives temporary-directory
+cleanup; the result file points to that retained copy. Preserve it until scoped
+cleanup succeeds.
+
+These are registered-agent CLI executions over Cognee. Native dashboard workflow
+rows/budget bookkeeping are not populated by this transport. Hosted agent session
+transcripts remain governed by the hosted runtime's own retention policy.
+
+### 32.3 Verification and local operation
+
+- TypeScript check and production build passed. The remaining warning is the
+  size of the separate anatomy viewer chunk.
+- **352 backend tests and 95 subtests passed**, including notes, backup/restore,
+  malformed archive rejection, schema compatibility, and retention protections.
+- **13 frontend state/API/history tests passed.** These are not rendered
+  component tests or a full automated browser suite.
+- Interactive Chrome checks against an isolated API verified paste → review →
+  approval → exact-source answer, chat persistence after reload, a narrow layout
+  without horizontal page overflow, and quick note → pending backend draft.
+  Reproduction steps are in `scripts/BROWSER_CHECKS.md`. Test servers were stopped
+  afterward; ordinary user storage and providers were not used for these checks.
+- The local supervisor recovered automatically after its API child was
+  intentionally terminated; both UI and API returned healthy responses afterward.
+  A second supervisor instance was rejected by its lock. Python script syntax
+  checks passed. This verifies child-process recovery while the parent is alive.
+- macOS accepted the login service registration but refused to execute its
+  Python process with `Operation not permitted` / `EX_CONFIG (78)`. The failed
+  job and its plist were removed, so it does not keep retrying. The installer now
+  checks sustained process startup and removes failed registrations. The exact
+  OS permission cause and successful login/reboot behavior remain unresolved.
+- The app is currently served at `http://127.0.0.1:3016`, backed by the loopback
+  API on port 8080. Terminal startup is documented in README. Closing the parent
+  terminal/session or rebooting the Mac is not covered by the verified recovery.
+
+### 32.4 Remaining work and limits
+
+| Item | Current status / next evidence needed |
+| --- | --- |
+| Hosted cleanup | Blocking: provider-scoped deletion must stop returning HTTP 500; rerun retained synthetic cleanup and prove remote/source cleanup completes. |
+| Mac login/reboot startup | Blocking unattended local operation: resolve OS launch failure, then verify login/reboot startup and healthy UI/API. Foreground startup works. |
+| Hosted worker supervision | A systemd user-unit example exists, but the hosted operator has not installed or verified it. Test crash and host-reboot recovery with exactly one worker. |
+| Browser/component regression coverage | Interactive checks and state tests exist; a comprehensive automated rendered-component/browser suite remains open. |
+| Larger collections | Record-list pagination and scalability measurements remain open. Backup/schema baseline is implemented. |
+| Device/accessibility performance | Narrow-layout and keyboard/focus improvements exist; physical mobile/low-end performance and full accessibility audits remain open. |
+| Version control | Rechecked September 28: the outer BodyBrain workspace has baseline commit `bfc8094` (`Initial BodyBrain implementation`, September 27, 2026). Later local-release and dataset changes remain uncommitted; the vendor checkout is separate. This supersedes the earlier no-Git observations. |
+| Distribution license | Upstream attribution/notices are present; an original-code license has not been chosen by the owner. |
+| Public/multi-user operation | Accounts, TLS deployment, cross-device sync, and production operations are outside the selected local scope and are not implemented/verified as a hosted product. |
+| Broader health roadmap | Raw-scan interpretation, OCR, personalized geometry, wearables, and diagnostic functions are not delivered by this local app. |
+
+Section 21's original P0/P1 defects are substantially repaired and live ingestion
+and evidence are now demonstrated, but provider cleanup is an unresolved lifecycle
+blocker. P2 contains both completed work and the explicit open items above. This
+is a working local application with validated hosted features, not a claim that
+every original audit recommendation or the broader product vision is finished.
+
+## 33. Synthea and Fitbit sample workspaces — September 28, 2026
+
+The user selected Synthea medical history plus Fitbit summaries from their two
+dataset research lists. The implementation uses the official Synthea CSV sample
+and the April–May 2016 archive from Zenodo record 53894. Publisher metadata and
+usage statements were checked; URLs, versions, sizes, hashes, and attribution are
+recorded in `datasets/sources.json` and `datasets/README.md`.
+
+- Downloaded approximately 31 MB into ignored `.runtime/datasets/raw`; verified
+  SHA-256 for both archives and the publisher's MD5 for Fitbit. Synthea is pinned
+  to official sample-repository commit `9959d9178ea28f4ec10f17ee238b6fabe6eb0de5`.
+- Prepared **22 Synthea drafts** for one synthetic patient: up to four recent
+  rows per category across conditions, medications, encounters, procedures,
+  care plans, and observations. Their source dates span 2009-03-30–2026-02-09.
+  This is a selected sample, not a complete longitudinal record.
+- Prepared **7 Fitbit daily drafts**, dated 2016-05-06–2016-05-12, for one study
+  participant, with exact same-subject/date sleep joins. Missing sleep remains
+  missing; identical duplicate rows do not inflate totals; conflicting duplicates
+  and invalid measurements are rejected. No heart-rate or recovery metric is
+  inferred from activity or sleep.
+- Each normalized TXT summary retains source row values, source member and row
+  references, original subject/date, archive hash, attribution, and transformation
+  disclosure. The untouched archives remain separately available. These summaries
+  are derived records, not verbatim medical reports.
+- Added bounded CSV adapters, idempotent imports, dataset/subject workspace
+  markers, pinned download/prepare tooling, and a two-app launcher. Workspace
+  locking prevents preparation concurrent with the dataset server launcher.
+- Synthea runs at `http://127.0.0.1:3018` (API 8083); Fitbit runs at
+  `http://127.0.0.1:3019` (API 8084). They have separate SQLite/source stores and
+  browser origins. Providers and dotenv are disabled for both; no hosted uploads
+  or approvals were performed by sample preparation. The normal `.bodybrain`
+  records remain in the ordinary app on port 3016.
+- All **29 prepared records remain pending human review**. A visible workspace
+  label identifies the sample context. Rendered Chrome checks confirmed both
+  record lists and the Fitbit measurement/source review screen. Review and exact
+  citation recall were tested using disposable fabricated test fixtures.
+- **364 backend tests and 95 subtests passed**; **13 frontend tests passed**;
+  TypeScript and production build passed. Existing warnings remain: the anatomy
+  viewer chunk exceeds 500 KB and Starlette reports its httpx TestClient
+  deprecation. Dataset tests cover participant/date separation, duplicate and
+  invalid-value handling, missingness, source provenance, review gating, exact
+  citations, repeat imports, and refusing personal or provider-enabled stores.
+
+The normal upload form still accepts PDF/TXT/MD. This phase adds a CLI dataset
+sample workflow, not universal CSV/FHIR ingestion, device account synchronization,
+imaging interpretation, or clinical conclusions. Other suggested datasets were
+not downloaded. Synthea and Fitbit subjects are unrelated and are not represented
+as one real patient. Section 32's Cognee cleanup, login-startup, and hosted
+supervision issues are not resolved by this work.
+
+## 34. Resumed dataset handoff and verification — September 28, 2026
+
+Read the latest shared conversation and its final expanded activity, then checked
+the current files and running apps. The remaining dataset handoff was review-screen
+verification and documentation; the archives, adapters, and isolated workspaces
+were already present.
+
+- Fixed Synthea recent-row selection to compare full source timestamps and UTC
+  offsets. Previously, multiple events on one day were ordered only by CSV row
+  position, which could select an earlier event. Two regression cases cover
+  shuffled same-day events and offsets crossing calendar midnight. Source field
+  values and displayed calendar event dates are preserved.
+- Dataset records now show **Normalized source** and **Open summary** in the
+  review panel, with an explicit CSV transformation explanation. Ordinary
+  uploads and corrected transcriptions retain their existing source labels.
+- Reverified both archive byte counts and pinned SHA-256 hashes without
+  downloading them again. Read-only comparison confirmed the current adapters
+  reproduce exactly the 22 Synthea and 7 Fitbit summaries already stored, so
+  no reimport or source replacement was needed.
+- Chrome checks confirmed separate workspace labels, connected backends,
+  unconfigured providers, the two record lists, historical medication wording,
+  Fitbit zero values versus missing sleep, and normalized source provenance.
+  Reproduction steps are in `scripts/BROWSER_CHECKS.md`. These are interactive
+  checks, not a new automated browser suite.
+- The resumed checks did not approve records or alter their sources. All 29
+  were pending at the initial read; Synthea approval state changed during live
+  use while verification was in progress. Those decisions were preserved.
+  Section 33's all-pending count describes preparation, not a permanent state.
+- **366 backend tests and 95 subtests passed**, including **14 dataset tests**.
+  **13 frontend tests passed**; TypeScript, production build, and Git whitespace
+  checks passed. The existing anatomy chunk-size and Starlette/httpx deprecation
+  warnings remain.
+- Corrected Section 32.4's stale version-control status: baseline commit
+  `bfc8094` exists; later release and dataset changes are still uncommitted.
+
+The dataset handoff is complete for the chosen local sample scope. Existing
+servers remain available on ports 3018 and 3019. The earlier Cognee cleanup,
+Mac login-startup, and hosted-worker supervision issues were not repaired or
+reverified during this dataset continuation and remain separately open.
+
+## 35. Cognee, ClawMax, and local startup recheck — September 28, 2026
+
+The following supersedes the earlier integration/startup status. Live checks
+were completed around 15:29 UTC. Dataset source files and user review decisions
+were preserved.
+
+- **Local UI/API and automatic process recovery work.** The macOS login service
+  is installed. Starting launchd in `/private/tmp` with logs under
+  `~/Library/Logs/BodyBrain` resolved the startup failure; Python enters the
+  original project directory and all records remain in place. The installer now
+  verifies UI/API responses as well as a stable supervisor PID. A controlled
+  supervisor termination changed PID 37935 to 37981 and restored HTTP 200 on
+  API 8080 and UI 3016 automatically. Physical login/reboot was not performed.
+- **Cognee memory passed a live synthetic test.** New `scripts/smoke-memory.py`
+  verified indexing, retrieval of the synthetic source document ID, scoped
+  deletion, and subsequent absence. Its isolated state is retained at
+  `.runtime/clawmax-deploy/memory-smoke-u9ncy3og`. `scripts/smoke-relay.py
+  --with-memory` now supports requiring this memory path in the full hosted test.
+- **ClawMax relay is currently blocked.** Both exact scoped deletion routes still
+  return HTTP 500 for the retained synthetic relay file. A fresh unindexed
+  synthetic file in a new dataset reproduces the failure. Indexed memory's
+  deletion success does not prove raw relay cleanup works. Provider health and
+  authenticated reads succeed; the internal server failure needs provider logs.
+- **The outbox reached the provider's listing cap.** Requests at offsets 0 and
+  1000 both return the same 1,000 IDs. The live OpenAPI route has no pagination
+  query parameters. The client fails closed; the integration status now explains
+  the incomplete/repeated listing instead of showing only a generic error.
+  `scripts/check-local.py` reports Cognee, ingestion, and evidence separately and
+  returns failure while either hosted integration is unavailable.
+- **Fixed heartbeat growth locally.** The worker makes room before publishing
+  its third heartbeat and saves upload intent before the network call. Deletion
+  outages, lost upload responses, restart recovery, and ownership mismatches are
+  covered by regression tests. The updated installer is prepared in
+  `.runtime/clawmax-deploy/relay-retention-fix`. Hosted deployment remains pending:
+  automatic approval review rejected uploading internal worker code to Cognee
+  without specific transfer authorization, and explicit approval was requested.
+- **Hosted restart supervision remains unverified.** Read-only hosted diagnostics
+  found one detached worker, parent PID 1, and no detected systemd, supervisord,
+  cron, or s6 executable. The example service unit still requires a supported
+  host/operator startup mechanism; a heartbeat cannot prove container recovery.
+- **Validation:** 370 backend tests and 95 subtests passed. The modified startup
+  and diagnostic scripts compile, and Git whitespace checks pass. The existing
+  Starlette/httpx deprecation warning remains. No frontend code changed in this
+  integration recheck; Section 34 records its latest test/build verification.
+
+The credential-free private report `.runtime/provider-repair-report.md` records
+exact synthetic reproduction IDs and recovery steps. It has not been sent to
+Cognee. Retained smoke cleanup manifests and the existing worker ledger must not
+be discarded while deletion remains blocked. No dataset reset, relay indexing,
+credential expansion, or approval of user records was used as a workaround.
+
+## 36. GitHub release and hosted frontend — September 28, 2026
+
+The current source, dataset adapters, backup/retention features, regression tests,
+submission guide, demo narration, and reviewed native ClawMax export are included
+in the release. GitHub resolves the original repository URL to the public
+`ritzzi23/BodyBrain` repository.
+
+The user selected a frontend-only Vercel deployment. `vercel.json` builds with
+`VITE_FRONTEND_ONLY=true`: anatomy exploration, browser notes, and bookmarks are
+available; every records action opens local setup guidance. The records panel is
+not mounted, so it does not poll unavailable APIs, and saving notes does not try
+to create backend drafts. The normal local build retains records functionality.
+The persistent API, private sources, credentials, and hosted worker are outside
+this deployment. The Cognee/ClawMax limitations in Section 35 remain unresolved.
+
+Release validation: 370 backend tests and 95 subtests, 13 frontend tests,
+TypeScript checking, and both normal and frontend-only production builds passed.
+The Three.js scene chunk still produces Vite's advisory 500 kB size warning.
+Chrome checks verified anatomy selection, the hosted guidance dialog, and a
+fictional browser-only note saving with the correct success message.
+
+A bounded publish audit found no obvious credentials or private records in
+intended source files and the native workspace ZIP. Actual environment files,
+local record stores, runtime artifacts, dependencies, and Vercel CLI state are
+excluded. Publishing these deliverables does not submit the hackathon portal or
+create a demo video.

@@ -28,6 +28,7 @@ export interface BodyRecord {
   superseded_by?: string | null;
   deletion_error?: string | null;
   source_kind?: 'original' | 'corrected_transcription';
+  dataset_source?: { dataset: string; subject_id: string; archive_sha256: string; transformation: string };
 }
 
 export interface RecordRevision {
@@ -39,11 +40,17 @@ export interface RecordRevision {
 
 export interface Health {
   status: string;
+  workspace_label?: string;
   integrations: {
     cognee: { configured: boolean; mode: string };
     clawmax: { configured: boolean; transport?: 'dashboard' | 'cognee_relay'; ingestion_configured?: boolean; evidence_configured?: boolean; callbacks_configured?: boolean };
   };
   counts: { records: number; approved: number };
+}
+
+export interface IntegrationStatus {
+  cognee: { configured: boolean; reachable?: boolean; message?: string };
+  clawmax: { ingestion: { status: string; worker_online?: boolean; worker_state?: string; message?: string; checked_at?: string } };
 }
 
 export interface Citation {
@@ -106,6 +113,9 @@ const json = (body: unknown): RequestInit => ({ method: 'POST', headers: { 'Cont
 
 export const backend = {
   health: () => request<Health>('/health'),
+  integrations: () => request<IntegrationStatus>('/integrations'),
+  retention: (days: number, apply = false) => request<{ tasks: number; activity_entries: number }>('/history/retention', json({ older_than_days: days, apply })),
+  addNote: (clientId: string, text: string, conceptId: string, eventDate: string) => request<BodyRecord>('/notes', json({ client_id: clientId, text, concept_id: conceptId, event_date: eventDate })),
   records: () => request<{ records: BodyRecord[] }>('/records'),
   record: (id: string) => request<BodyRecord>(`/records/${encodeURIComponent(id)}`),
   revise: (id: string, revision: RecordRevision) => request<BodyRecord>(`/records/${encodeURIComponent(id)}/revisions`, json(revision)),

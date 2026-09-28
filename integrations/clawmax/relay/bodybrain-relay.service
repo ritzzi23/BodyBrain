@@ -1,0 +1,17 @@
+[Unit]
+Description=BodyBrain Cognee relay worker
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 -B %h/.bodybrain-clawmax-relay/worker.py --config %h/.bodybrain-clawmax-relay/config.json --state-dir %h/.bodybrain-clawmax-relay/state
+EnvironmentFile=%h/.config/bodybrain/relay.env
+Restart=on-failure
+RestartSec=10
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=default.target

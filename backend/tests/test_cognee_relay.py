@@ -431,6 +431,21 @@ async def test_relay_health_handles_absent_stale_and_malformed_heartbeats(relay_
     assert (await relay.health())["worker_online"] is True
 
 
+async def test_relay_health_reports_incomplete_listing_without_claiming_readiness(relay_env):
+    from bodybrain.cognee_transport import CogneeTransportError
+    settings, _, _, _, _ = relay_env
+    relay = CogneeRelay(settings)
+    relay.files = Mock()
+    relay.files.dataset.return_value = str(uuid4())
+    relay.files.list_files.side_effect = CogneeTransportError("private response", code="ambiguous_response")
+    result = await relay.health()
+    assert result["status"] == "error"
+    assert result["error_code"] == "ambiguous_response"
+    assert "pagination" in result["message"]
+    assert "private response" not in result["message"]
+    assert not result.get("worker_online")
+
+
 def test_matching_file_rejects_two_provider_names_for_same_logical_identity():
     files = [{"id": str(uuid4()), "name": "task", "extension": "txt"}, {"id": str(uuid4()), "name": "task.txt", "extension": "txt"}]
     with pytest.raises(ValueError, match="Ambiguous"):

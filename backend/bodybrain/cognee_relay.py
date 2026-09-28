@@ -76,7 +76,12 @@ class CogneeRelay:
             return None
         try:
             beat = await asyncio.to_thread(read_heartbeat)
-        except (CogneeTransportError, ValueError, KeyError, TypeError):
+        except CogneeTransportError as exc:
+            message = ("Cognee returned an incomplete or repeated file listing. Check relay retention and provider pagination."
+                       if exc.code in {"ambiguous_response", "pagination_limit"}
+                       else "Could not verify the ClawMax worker through Cognee.")
+            return {**status, "status": "error", "error_code": exc.code, "message": message}
+        except (ValueError, KeyError, TypeError):
             return {**status, "status": "error", "message": "Could not verify the ClawMax worker through Cognee."}
         if not beat:
             return {**status, "status": "waiting", "worker_online": False, "message": "Cognee relay is configured; waiting for a recent ClawMax worker heartbeat."}

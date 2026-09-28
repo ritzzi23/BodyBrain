@@ -70,13 +70,13 @@ class Service:
             for lock in reversed(acquired):
                 lock.release()
 
-    def create_record(self, content: bytes, filename: str, title: str, record_type: str, event_date: str | None = None, *, revises: dict | None = None) -> dict:
+    def create_record(self, content: bytes, filename: str, title: str, record_type: str, event_date: str | None = None, *, revises: dict | None = None, identity_key: str = '') -> dict:
         pages = parse_document(content, filename, self.settings.max_text_chars)
         text = "\n\n".join(page["text"] for page in pages)
         # Include dated/type metadata in identity; identical bytes with different
         # confirmed event dates must not silently reuse a previous record.
         # Re-reviewing identical text intentionally creates a new immutable source.
-        revision_key = str(uuid.uuid4()) if revises else ""
+        revision_key = str(uuid.uuid4()) if revises else identity_key
         digest = hashlib.sha256(content + f"\0{record_type}\0{event_date or ''}{revision_key}".encode()).hexdigest()
         existing = self.store.by_digest(digest)
         if existing:

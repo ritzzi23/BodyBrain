@@ -367,3 +367,6 @@
   .backend-delete-confirm > div > button { flex: 1; justify-content: center; }
   .backend-version-history { padding: 12px; }
 }
+.backend-tools { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; padding: 10px 24px; font-size: 12px; }
+.backend-tools a { text-decoration: none; }
+.backend-tools span { color: var(--text-muted, #888); }

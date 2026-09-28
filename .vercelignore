@@ -1,0 +1,14 @@
+.git
+.env
+.env.*
+!.env.example
+.bodybrain
+.bodybrain-*
+.runtime
+.venv
+backend/.venv
+node_modules
+dist
+**/__pycache__
+**/.pytest_cache
+*.zip

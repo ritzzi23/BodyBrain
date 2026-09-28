@@ -281,3 +281,64 @@ def test_heartbeat_retention_deletes_only_this_workers_own_files(tmp_path, monke
     assert "bb_heartbeat_999.txt" in files.items["outbox"]
     assert files.deleted == [("outbox", "bb_heartbeat_1000.txt"), ("outbox", "bb_heartbeat_1001.txt")]
     instance.ledger.close()
+
+
+def test_heartbeat_deletion_outage_is_bounded_and_recovers(tmp_path, monkeypatch):
+    files = Files()
+    instance = worker.Worker(CONFIG, files, tmp_path)
+    for _ in range(3):
+        instance.heartbeat()
+    original = dict(files.items["outbox"])
+    delete = files.delete_file
+    def unavailable(*_):
+        raise RuntimeError("provider unavailable")
+    monkeypatch.setattr(files, "delete_file", unavailable)
+    for _ in range(20):
+        with pytest.raises(RuntimeError):
+            instance.heartbeat()
+    assert files.items["outbox"] == original
+    assert len(instance.ledger.heartbeat_names()) == 3
+    monkeypatch.setattr(files, "delete_file", delete)
+    instance.heartbeat()
+    assert len(files.items["outbox"]) == 3
+    assert len(instance.ledger.heartbeat_names()) == 3
+    assert files.items["outbox"] != original
+    instance.ledger.close()
+
+
+def test_heartbeat_upload_timeout_remains_tracked_after_restart(tmp_path, monkeypatch):
+    files = Files()
+    instance = worker.Worker(CONFIG, files, tmp_path)
+    upload = files.put_file
+    def uncertain_upload(*args):
+        upload(*args)
+        raise RuntimeError("response lost after upload")
+    monkeypatch.setattr(files, "put_file", uncertain_upload)
+    for _ in range(5):
+        with pytest.raises(RuntimeError):
+            instance.heartbeat()
+    assert len(files.items["outbox"]) == 3
+    assert set(files.items["outbox"]) == set(instance.ledger.heartbeat_names())
+    instance.ledger.close()
+    monkeypatch.setattr(files, "put_file", upload)
+    restarted = worker.Worker(CONFIG, files, tmp_path)
+    restarted.heartbeat()
+    assert len(files.items["outbox"]) == 3
+    assert set(files.items["outbox"]) == set(restarted.ledger.heartbeat_names())
+    restarted.ledger.close()
+
+
+def test_heartbeat_ownership_mismatch_never_deletes_or_adds_files(tmp_path):
+    files = Files()
+    instance = worker.Worker(CONFIG, files, tmp_path)
+    for _ in range(3):
+        instance.heartbeat()
+    oldest = instance.ledger.heartbeat_names()[-1]
+    files.items["outbox"][oldest] = canonical_bytes({"schema": "bodybrain.clawmax.heartbeat.v1", "worker_id": "another-worker"})
+    original = dict(files.items["outbox"])
+    with pytest.raises(worker.WorkerError, match="ownership"):
+        instance.heartbeat()
+    assert not files.deleted
+    assert files.items["outbox"] == original
+    assert len(instance.ledger.heartbeat_names()) == 3
+    instance.ledger.close()

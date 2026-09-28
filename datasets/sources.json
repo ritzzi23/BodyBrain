@@ -1,0 +1,25 @@
+{
+  "format": "bodybrain.dataset-sources.v1",
+  "verified_on": "2026-09-28",
+  "archives": {
+    "synthea": {
+      "filename": "synthea.zip",
+      "url": "https://raw.githubusercontent.com/synthetichealth/synthea-sample-data/9959d9178ea28f4ec10f17ee238b6fabe6eb0de5/downloads/latest/synthea_sample_data_csv_latest.zip",
+      "bytes": 5960866,
+      "sha256": "d61417b551e5b0997c33851b339c157421751f0ea68c18ea686ceb1850907c35",
+      "publisher": "https://synthetichealth.github.io/downloads.html",
+      "terms": "Synthetic data provided for unrestricted use; cite Walonoski et al., JAMIA 2018, DOI 10.1093/jamia/ocx079",
+      "version": "synthea-sample-data commit 9959d9178ea28f4ec10f17ee238b6fabe6eb0de5"
+    },
+    "fitbit": {
+      "filename": "fitbit.zip",
+      "url": "https://zenodo.org/api/records/53894/files/mturkfitbit_export_4.12.16-5.12.16.zip/content",
+      "bytes": 25291915,
+      "sha256": "4741dfabd18453de19b6dd0a7204e8fea6e45e70bc9ddbe396956c8e4fde02f8",
+      "publisher_md5": "7afbecdce29814e1be2e9a7c94f8f165",
+      "publisher": "https://zenodo.org/records/53894",
+      "terms": "CC BY 4.0; Furberg, Brinton, Keating, Ortiz (2016), DOI 10.5281/zenodo.53894",
+      "version": "Zenodo 53894 v1, April 12–May 12, 2016 archive"
+    }
+  }
+}

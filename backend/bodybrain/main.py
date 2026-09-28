@@ -5,6 +5,8 @@ import asyncio
 import hmac
 import logging
 import uuid
+import tempfile
+from pathlib import Path
 
 from fastapi import FastAPI, Depends, File, Form, Header, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
@@ -12,6 +14,7 @@ from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 from starlette.concurrency import run_in_threadpool
+from starlette.background import BackgroundTask
 
 from .anatomy import complete_source_quote
 from .config import Settings
@@ -23,6 +26,8 @@ from .evidence import citations_for, render_answer, verified_quote
 from .ingestion import InvalidDocument
 from .service import CleanupFailure, Service, include_source_passages
 from .relay_protocol import is_expired
+from .backup import create_backup
+from .retention import prune_history
 
 
 class TextRecord(BaseModel):
@@ -35,6 +40,18 @@ class TextRecord(BaseModel):
 
 class Approval(BaseModel):
     finding_ids: list[str] | None = None
+
+
+class PersonalNote(BaseModel):
+    client_id: uuid.UUID
+    text: str = Field(min_length=1, max_length=150_000)
+    concept_id: str
+    event_date: date | None = None
+
+
+class HistoryRetention(BaseModel):
+    older_than_days: int = Field(ge=1, le=3650)
+    apply: bool = False
 
 
 class MappingEdit(BaseModel):
@@ -164,7 +181,7 @@ def create_app(settings: Settings | None = None, memory=None, clawmax_ingest=Non
         records = service.store.records()
         cognee = await memory.status()
         relay_configured = bool(service.relay and service.relay.configured)
-        return {"status": "ok", "storage": "sqlite", "scope": "local_single_user", "integrations": {
+        return {"status": "ok", "storage": "sqlite", "scope": "local_single_user", "workspace_label": settings.workspace_label, "integrations": {
             "cognee": cognee,
             "clawmax": {"transport": settings.clawmax_transport,
                         "configured": relay_configured if service.relay else bool(clawmax_ingest.configured and clawmax_evidence.configured and settings.agent_token),
@@ -186,6 +203,40 @@ def create_app(settings: Settings | None = None, memory=None, clawmax_ingest=Non
     @app.get("/api/records")
     def records():
         return {"records": service.store.records()}
+
+    @app.get('/api/backup')
+    async def backup():
+        temporary = tempfile.TemporaryDirectory(prefix='bodybrain-export-')
+        path = Path(temporary.name) / 'bodybrain-backup.zip'
+        try:
+            async with service.lock_records(*(r['id'] for r in service.store.records())):
+                await run_in_threadpool(create_backup, settings.data_dir, path)
+        except Exception:
+            temporary.cleanup()
+            raise HTTPException(409, 'Backup could not be completed. Wait for record changes to finish and retry.')
+        return FileResponse(path, filename='bodybrain-backup.zip', media_type='application/zip', background=BackgroundTask(temporary.cleanup))
+
+    @app.post('/api/notes', status_code=201)
+    async def add_note(body: PersonalNote):
+        concept = service.anatomy.by_id.get(body.concept_id)
+        if not concept:
+            raise HTTPException(422, 'Unknown atlas concept')
+        # Stable browser-note identity makes retries safe, including concurrent ones.
+        async with service.lock_records('note:' + str(body.client_id)):
+            existing = next((r for r in service.store.records() if r.get('browser_note_id') == str(body.client_id)), None)
+            if existing:
+                return existing
+            try:
+                record = await run_in_threadpool(service.create_record, body.text.encode(), 'personal-note.txt', f"Personal note — {concept['name']}", 'personal_note', body.event_date.isoformat() if body.event_date else None, identity_key='note:' + str(body.client_id))
+            except InvalidDocument as exc:
+                raise HTTPException(422, str(exc)) from exc
+            for finding in record['findings']:
+                finding.update(concept=concept, anatomy_query=concept['name'], mapping_status='matched', mapping_method='user_selected')
+            return service.store.update(record['id'], expected_status='pending_review', findings=record['findings'], browser_note_id=str(body.client_id))
+
+    @app.post('/api/history/retention')
+    async def retention(body: HistoryRetention):
+        return await run_in_threadpool(prune_history, service.store, body.older_than_days, body.apply)
 
     @app.post("/api/records/text", status_code=201)
     async def add_text(body: TextRecord):

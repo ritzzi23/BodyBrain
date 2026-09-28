@@ -10,6 +10,8 @@
     "dev": "node scripts/dev.mjs",
     "build": "tsc --noEmit && vite build",
     "check": "tsc --noEmit",
+    "datasets:prepare": "backend/.venv/bin/python scripts/prepare-datasets.py",
+    "datasets:run": "backend/.venv/bin/python scripts/run-datasets.py",
     "preview": "vite preview --host 127.0.0.1 --port 3016",
     "dev:ui": "vite --host 127.0.0.1 --port 3016",
     "backend": "backend/.venv/bin/python -m uvicorn bodybrain.main:app --app-dir backend --host 127.0.0.1 --port 8080",

@@ -72,6 +72,9 @@ date. Missing clinical dates stay unknown; upload dates are not substituted.
 |---|---|
 | `GET /api/health` | Storage, record counts, configured integrations |
 | `GET /api/integrations` | Probe Cognee and configured ClawMax workflows |
+| `GET /api/backup` | Download a manifest-checked ZIP snapshot of SQLite and original sources |
+| `POST /api/notes` | Idempotent browser-note draft: `client_id`, `text`, `concept_id`, optional `event_date` |
+| `POST /api/history/retention` | Preview completed history older than `older_than_days`; `apply: true` removes it |
 | `POST /api/records` | Multipart file import: `file`, optional `title`, `record_type`, `event_date` |
 | `POST /api/records/text` | JSON import: `title`, `text`, optional `record_type`, `event_date` |
 | `GET /api/records` | Saved records, review state, indexing state |
@@ -159,6 +162,55 @@ health probe does not demonstrate dataset permissions or successful ingestion,
 and a submitted ClawMax execution is not a completed BodyBrain task. Validate the
 live setup with a synthetic report, review, Cognee indexing, and a source-backed
 question before using it for the hackathon demonstration.
+
+The alternative `CLAWMAX_TRANSPORT=cognee_relay` uses separate Cognee task/result
+datasets and an already-installed hosted worker. It needs no public callback URL.
+See [relay setup](../integrations/clawmax/README.md#automatic-cognee-relay-transport).
+`scripts/smoke-relay.py` exercises synthetic hosted ingestion, human review,
+evidence validation, and scoped cleanup in isolated local storage. It is a live
+provider test, not part of the offline test suite. Failed cleanup retains its
+state for `--cleanup-only <state-directory>`; do not discard that state while
+remote cleanup is pending. Add `--with-memory` to also require real Cognee
+indexing and source-linked retrieval in a new synthetic dataset. Run
+`backend/.venv/bin/python scripts/smoke-memory.py` for an independent memory check;
+it also retains state for `--cleanup-only <state-directory>`.
+
+The September 28 recheck passed memory indexing, source-linked retrieval, and
+scoped deletion of indexed memory. Hosted ingestion/evidence passed earlier,
+but current relay readiness is blocked: raw relay-file deletion returns HTTP
+500 and accumulated heartbeats filled the provider's 1,000-file listing, which
+repeats when requesting the next page. The client refuses this incomplete list.
+See audit section 35 for deployment status and the remaining provider repair.
+
+## Backups and history
+
+```sh
+PYTHONPATH=backend backend/.venv/bin/python -m bodybrain.backup create --data-dir .bodybrain --output .runtime/backups/manual-backup.zip
+PYTHONPATH=backend backend/.venv/bin/python -m bodybrain.backup restore .runtime/backups/manual-backup.zip --data-dir .bodybrain-restored
+```
+
+Choose a new output filename and a nonexistent restore directory. The archive
+includes SQLite and each record's original source; the SHA-256 manifest, source
+inventory, path validation, 2 GB size limit, and SQLite integrity check protect
+against corruption and malformed paths. Prefer backup while record edits are
+idle. A source removed during CLI backup causes a visible failure and retry.
+POSIX-created archives and restored files are private, but are not encrypted.
+
+Restore keeps record review state and remote-cleanup identities. It marks
+approved records not indexed, drops task payloads, retains minimal relay cleanup
+tombstones, and marks unfinished activity interrupted. It never restores `.env`,
+credentials, browser notes/bookmarks/chat, hosted transcripts, or provider stores.
+Explicitly check provider state before retrying indexing. A restore is not a
+rollback of Cognee or hosted ClawMax activity.
+
+Schema version 1 establishes the migration baseline for existing version-0
+databases. Newer unknown schema versions are refused rather than modified.
+
+History retention defaults to preview, accepts 1–3650 days, and removes only old
+completed/failed task results and completed/failed/interrupted activity. Relay
+cleanup references protect related history. Sources, records, active work, and
+external provider data remain unchanged. No automatic source-retention schedule
+is enabled.
 
 ## Validation and current scope
 

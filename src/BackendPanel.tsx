@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { Activity, ArrowLeft, ArrowRight, Bot, Check, CheckCheck, ChevronRight, Clock3, Database, FileText, Focus, History, LoaderCircle, MessageCircle, Pencil, Plus, RefreshCw, Send, ShieldCheck, Trash2, Upload, X } from 'lucide-react';
 import type { Concept } from './anatomy/anatomy';
-import { backend, type BodyRecord, type Citation, type Health, type WorkflowRun } from './backend-api';
+import { backend, type BodyRecord, type Citation, type Health, type IntegrationStatus, type WorkflowRun } from './backend-api';
 import { agentCapabilities, applyAgentResults, hasBackgroundWork, type Exchange } from './backend-state';
 import { loadHistory, pruneHistory, saveHistory } from './chat-history';
 import './backend.css';
@@ -48,9 +48,15 @@ export default function BackendPanel({ open, selectedConcept, onClose, onSelectC
   const alive = useRef(true);
   const [tab, setTab] = useState<Tab>('records');
   const [health, setHealth] = useState<Health | null>(null);
+  const [integrationStatus, setIntegrationStatus] = useState<IntegrationStatus | null>(null);
+  const [probeError, setProbeError] = useState(false);
+  const [retentionDays, setRetentionDays] = useState(30);
+  const [retentionPreview, setRetentionPreview] = useState<{ tasks: number; activity_entries: number } | null>(null);
   const agent = agentCapabilities(health?.integrations.clawmax);
   const agentUsesRelay = health?.integrations.clawmax.transport === 'cognee_relay';
   const agentRoute = agentUsesRelay ? ' through Cognee' : '';
+  const worker = integrationStatus?.clawmax.ingestion;
+  const workerLabel = probeError ? 'status unavailable' : !worker ? 'checking worker…' : worker.status === 'ready' && worker.worker_online ? `worker ${worker.worker_state || 'online'}` : worker.worker_online ? 'worker needs attention' : 'worker offline';
   const [records, setRecords] = useState<BodyRecord[]>([]);
   const recordsRef = useRef<BodyRecord[] | null>(null);
   const [events, setEvents] = useState<BodyRecord[]>([]);
@@ -90,6 +96,9 @@ export default function BackendPanel({ open, selectedConcept, onClose, onSelectC
   const [mappingResults, setMappingResults] = useState<Concept[]>([]);
   const [mappingSearching, setMappingSearching] = useState(false);
   const selected = records.find(record => record.id === selectedId);
+  const selectedIsCorrection = selected?.source_kind === 'corrected_transcription' || !!selected?.revises_record_id;
+  const sourceLabel = selectedIsCorrection ? 'Corrected transcription' : selected?.dataset_source ? 'Normalized source' : 'Original text';
+  const sourceLinkLabel = selectedIsCorrection ? 'Open transcription' : selected?.dataset_source ? 'Open summary' : 'Open original';
   const correction = records.find(record => record.id === correctionId);
   const versions = recordVersions(records, selected);
   const pendingCorrection = selected && records.find(record => record.revises_record_id === selected.id && record.status === 'pending_review');
@@ -118,6 +127,21 @@ export default function BackendPanel({ open, selectedConcept, onClose, onSelectC
     alive.current = true;
     return () => { alive.current = false; };
   }, []);
+
+  useEffect(() => {
+    if (!open || !agentUsesRelay) return;
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout>;
+    const probe = async () => {
+      try {
+        const status = await backend.integrations();
+        if (!cancelled) { setIntegrationStatus(status); setProbeError(false); }
+      } catch { if (!cancelled) { setIntegrationStatus(null); setProbeError(true); } }
+      if (!cancelled) timer = setTimeout(probe, 30000);
+    };
+    void probe();
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [open, agentUsesRelay]);
 
   useEffect(() => {
     if (!open) return;
@@ -322,7 +346,10 @@ export default function BackendPanel({ open, selectedConcept, onClose, onSelectC
   return <dialog ref={dialog} className="backend-dialog" aria-labelledby="backend-heading" onCancel={event => { event.preventDefault(); onClose(); }} onClick={event => { if (event.currentTarget === event.target) onClose(); }}>
     <div className="backend-shell">
       <header className="backend-header"><div className="backend-heading-icon"><Database size={21} /></div><div><span className="eyebrow">BODYBRAIN MEMORY</span><h2 id="backend-heading">The story behind your anatomy.</h2></div><button className="icon-button" onClick={onClose} aria-label="Close records"><X size={20} /></button></header>
-      <div className="backend-provider-strip"><span className={health ? 'online' : ''}><i />{health ? 'Backend connected' : busy === 'connecting' ? 'Connecting…' : 'Backend offline'}</span><span><Database size={12} />Cognee: {health ? health.integrations.cognee.configured ? `${health.integrations.cognee.mode || 'configured'}` : 'not configured' : 'unknown'}</span>{(agent.ingestion || agent.evidence) && <span><Bot size={13} />{agentUsesRelay ? 'ClawMax via Cognee' : 'ClawMax'}: configured</span>}<button aria-label="Refresh backend" disabled={!!busy} onClick={() => void act('refreshing', async () => { await refresh(); setPollStopped(false); setExchanges(previous => previous.map(exchange => exchange.agentStatus === 'waiting' ? { ...exchange, agentStatus: 'pending' } : exchange)); setNotice('Records refreshed.'); })}><RefreshCw className={busy === 'refreshing' ? 'backend-spinning' : ''} size={13} />Refresh</button></div>
+      {health?.workspace_label && <div className="backend-notices" role="status"><p>{health.workspace_label}</p></div>}
+      <div className="backend-provider-strip"><span className={health ? 'online' : ''}><i />{health ? 'Backend connected' : busy === 'connecting' ? 'Connecting…' : 'Backend offline'}</span><span><Database size={12} />Cognee: {health ? health.integrations.cognee.configured ? `${health.integrations.cognee.mode || 'configured'}` : 'not configured' : 'unknown'}</span>{(agent.ingestion || agent.evidence) && <span><Bot size={13} />{agentUsesRelay ? 'ClawMax via Cognee' : 'ClawMax'}: {agentUsesRelay ? workerLabel : 'configured'}</span>}<button aria-label="Refresh backend" disabled={!!busy} onClick={() => void act('refreshing', async () => { await refresh(); setPollStopped(false); setExchanges(previous => previous.map(exchange => exchange.agentStatus === 'waiting' ? { ...exchange, agentStatus: 'pending' } : exchange)); setNotice('Records refreshed.'); })}><RefreshCw className={busy === 'refreshing' ? 'backend-spinning' : ''} size={13} />Refresh</button></div>
+      <div className="backend-tools"><a className="secondary-button" href="/api/backup" download="bodybrain-backup.zip">Download records backup</a><span>Includes original sources and review history. Keep it private.</span></div>
+      <details className="backend-tools"><summary>Activity retention</summary><p>Remove old completed task results and activity entries. Records, original sources, browser chat, and hosted transcripts are kept. Download a backup first if you want to retain this history.</p><label>Keep recent history (days) <input aria-label="History retention days" type="number" min="1" max="3650" value={retentionDays} onChange={event => { setRetentionDays(Number(event.target.value)); setRetentionPreview(null); }} /></label><button className="secondary-button" disabled={!!busy || retentionDays < 1 || retentionDays > 3650} onClick={() => void act('retention', async () => setRetentionPreview(await backend.retention(retentionDays)))}>Preview cleanup</button>{retentionPreview && <p>{retentionPreview.tasks} task results and {retentionPreview.activity_entries} activity entries. <button className="secondary-button" disabled={!!busy} onClick={() => void act('retention', async () => { await backend.retention(retentionDays, true); setRetentionPreview(null); await refresh(); setNotice('Old completed history removed. Records and sources kept.'); })}>Confirm history cleanup</button></p>}</details>
       <nav className="backend-tabs" aria-label="Memory workspace">{tabs.map(item => <button key={item.id} aria-current={tab === item.id ? 'page' : undefined} className={tab === item.id ? 'active' : ''} onClick={() => setTab(item.id)}><item.icon size={15} />{item.name}{item.id === 'records' && records.length > 0 && <span>{records.length}</span>}</button>)}</nav>
       {error && <div className="backend-alert" role="alert"><span>{error}</span><button aria-label="Dismiss error" onClick={() => setError('')}><X size={14} /></button></div>}
       {notice && <div className="backend-notice" role="status"><Check size={14} />{notice}</div>}
@@ -366,7 +393,8 @@ export default function BackendPanel({ open, selectedConcept, onClose, onSelectC
                 </section>}
                 {selected.status !== 'deleting' && <>
                 <Notices messages={selected.warnings} />
-                <div className="backend-review-tabs"><button className={reviewTab === 'findings' ? 'active' : ''} onClick={() => setReviewTab('findings')}>Review findings <span>{selected.findings.length}</span></button><button className={reviewTab === 'source' ? 'active' : ''} onClick={() => setReviewTab('source')}>{selected.source_kind === 'corrected_transcription' || selected.revises_record_id ? 'Corrected transcription' : 'Original text'}</button><a href={backend.sourceUrl(selected.id)} target="_blank" rel="noreferrer">{selected.source_kind === 'corrected_transcription' || selected.revises_record_id ? 'Open transcription' : 'Open original'} <ArrowRight size={12} /></a></div>
+                {selected.dataset_source && <div className="backend-review-explainer"><FileText size={18} /><p>This dataset summary was normalized from CSV rows. The source view includes the original field values and row references; it is not a verbatim clinician report.</p></div>}
+                <div className="backend-review-tabs"><button className={reviewTab === 'findings' ? 'active' : ''} onClick={() => setReviewTab('findings')}>Review findings <span>{selected.findings.length}</span></button><button className={reviewTab === 'source' ? 'active' : ''} onClick={() => setReviewTab('source')}>{sourceLabel}</button><a href={backend.sourceUrl(selected.id)} target="_blank" rel="noreferrer">{sourceLinkLabel} <ArrowRight size={12} /></a></div>
                 {reviewTab === 'source' ? <div className="backend-source">{selected.pages.length ? selected.pages.map(page => <section key={page.page}><span>PAGE {page.page}</span><pre>{page.text}</pre></section>) : <pre>{selected.text}</pre>}</div> : <>
                   <div className="backend-review-explainer"><ShieldCheck size={18} /><p>{selected.status === 'approved' ? 'This record has been reviewed. Answers use approved source evidence.' : selected.status === 'superseded' ? 'Historical findings are preserved for comparison. This superseded version is excluded from answers and the timeline.' : 'Check the quoted passages and proposed anatomical links. Select the findings you want to keep in memory.'}</p></div>
                   {selected.findings.length === 0 && <div className="backend-inline-empty"><FileText size={22} /><p>No findings were extracted. The source is preserved; memory approval needs at least one source passage.</p></div>}

@@ -483,26 +483,31 @@ class Worker:
         previous = self.ledger.heartbeat_names()
         if previous:
             epoch = max(epoch, int(previous[0][len("bb_heartbeat_"):-len(".txt")]) + 1)
+        # Make room BEFORE uploading. Failed provider deletion must not fill
+        # the result dataset with a new heartbeat every thirty seconds.
+        # Keep the newest two, then publish the third only after cleanup works.
+        old_names = previous[2:]
+        if old_names:
+            dataset = self.files.dataset(self.config["outbox_dataset"], create=False)
+            items = self.files.list_files(dataset) if dataset else []
+            for old_name in old_names:
+                if not HEARTBEAT_NAME.fullmatch(old_name):
+                    raise WorkerError("Worker heartbeat ledger contains an invalid name.")
+                item = self._one(items, old_name)
+                if item is not None:
+                    old = json.loads(self.files.read_file(dataset, item["id"]))
+                    if (not isinstance(old, dict) or old.get("schema") != "bodybrain.clawmax.heartbeat.v1"
+                            or old.get("worker_id") != self.ledger.worker_id):
+                        raise WorkerError("Worker heartbeat ownership could not be verified.")
+                    self.files.delete_file(dataset, item["id"])
+                self.ledger.remove_heartbeat(old_name)
         name = f"bb_heartbeat_{epoch}.txt"
         body = {"schema": "bodybrain.clawmax.heartbeat.v1", "worker_id": self.ledger.worker_id,
                 "timestamp": utc_now(), "model": self.config["model"], "agents": self.config["agents"], "status": self.status}
-        self.files.put_file(self.config["outbox_dataset"], name, canonical_bytes(body))
+        # Persist intent first: a successful upload followed by a timeout or
+        # process crash still belongs to this worker and can be cleaned later.
         self.ledger.record_heartbeat(name, epoch)
-        old_names = self.ledger.heartbeat_names()[3:]
-        if not old_names:
-            return
-        dataset = self.files.dataset(self.config["outbox_dataset"], create=False)
-        items = self.files.list_files(dataset)
-        for old_name in old_names:
-            if not HEARTBEAT_NAME.fullmatch(old_name):
-                continue
-            item = self._one(items, old_name)
-            if item is not None:
-                old = json.loads(self.files.read_file(dataset, item["id"]))
-                if not isinstance(old, dict) or old.get("schema") != body["schema"] or old.get("worker_id") != self.ledger.worker_id:
-                    continue
-                self.files.delete_file(dataset, item["id"])
-            self.ledger.remove_heartbeat(old_name)
+        self.files.put_file(self.config["outbox_dataset"], name, canonical_bytes(body))
 
 
 def main() -> int:

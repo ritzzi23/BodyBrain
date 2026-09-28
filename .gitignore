@@ -8,6 +8,7 @@ dist/
 !.env.example
 .bodybrain/
 .runtime/
+.vercel/
 .venv/
 __pycache__/
 .pytest_cache/

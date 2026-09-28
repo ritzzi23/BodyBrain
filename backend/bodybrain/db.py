@@ -69,6 +69,9 @@ class Store:
             os.close(descriptor)
         self._private_database_files()
         with self.connect() as db:
+            version = db.execute('PRAGMA user_version').fetchone()[0]
+            if version > 1:
+                raise StateConflict('This database requires a newer BodyBrain version')
             db.executescript("""
                 PRAGMA journal_mode=WAL;
                 CREATE TABLE IF NOT EXISTS records (
@@ -95,6 +98,7 @@ class Store:
                     id TEXT PRIMARY KEY,
                     data TEXT NOT NULL
                 );
+                PRAGMA user_version=1;
             """)
 
     def _private_database_files(self) -> None:
